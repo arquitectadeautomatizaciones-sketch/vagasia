@@ -1,4 +1,4 @@
-import type { Appointment, Client, WaitingListEntry, Service } from "./types";
+import type { Appointment, Client, WaitingListEntry, Service, BusinessHours, AvailabilityException } from "./types";
 
 export const mockServices: Service[] = [
   { id: "s1", business_id: "b1", name: "Corte de cabelo", duration_minutes: 45, price: 20, description: null, active: true },
@@ -25,6 +25,23 @@ export const mockAppointments: Appointment[] = [
   { id: "a4", business_id: "b1", client_id: "c4", service_id: "s3", starts_at: `${today}T14:00:00`, ends_at: `${today}T15:00:00`, status: "cancelada", notes: "Cliente cancelou", price: 35, created_at: today, client: mockClients[3], service: mockServices[2] },
   { id: "a5", business_id: "b1", client_id: "c5", service_id: "s1", starts_at: `${today}T15:30:00`, ends_at: `${today}T16:15:00`, status: "confirmada", notes: null, price: 20, created_at: today, client: mockClients[4], service: mockServices[0] },
   { id: "a6", business_id: "b1", client_id: "c6", service_id: "s2", starts_at: `${today}T16:30:00`, ends_at: `${today}T18:30:00`, status: "pendente", notes: null, price: 60, created_at: today, client: mockClients[5], service: mockServices[1] },
+];
+
+export const mockBusinessHours: BusinessHours[] = [
+  { id: "bh0", business_id: "b1", day_of_week: 0, open_time: "09:00", close_time: "19:00", is_closed: true },  // Domingo
+  { id: "bh1", business_id: "b1", day_of_week: 1, open_time: "09:00", close_time: "19:00", is_closed: false }, // Segunda
+  { id: "bh2", business_id: "b1", day_of_week: 2, open_time: "09:00", close_time: "19:00", is_closed: false }, // Terça
+  { id: "bh3", business_id: "b1", day_of_week: 3, open_time: "09:00", close_time: "19:00", is_closed: false }, // Quarta
+  { id: "bh4", business_id: "b1", day_of_week: 4, open_time: "09:00", close_time: "19:00", is_closed: false }, // Quinta
+  { id: "bh5", business_id: "b1", day_of_week: 5, open_time: "09:00", close_time: "19:00", is_closed: false }, // Sexta
+  { id: "bh6", business_id: "b1", day_of_week: 6, open_time: "10:00", close_time: "13:00", is_closed: true },  // Sábado
+];
+
+export const mockExceptions: AvailabilityException[] = [
+  { id: "ex1", business_id: "b1", date: "2026-04-28", type: "block", start_time: "09:00", end_time: "13:00", reason: "Formação profissional" },
+  { id: "ex2", business_id: "b1", date: "2026-05-03", type: "open", start_time: "10:00", end_time: "14:00", reason: "Sábado especial" },
+  { id: "ex3", business_id: "b1", date: "2026-04-27", type: "block", start_time: "14:00", end_time: "16:00", reason: "Consulta médica" },
+  { id: "ex4", business_id: "b1", date: "2026-05-07", type: "block", start_time: "09:00", end_time: "19:00", reason: "Feriado local" },
 ];
 
 export const mockWaitingList: WaitingListEntry[] = [

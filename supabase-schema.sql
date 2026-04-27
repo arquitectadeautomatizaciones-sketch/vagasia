@@ -73,6 +73,17 @@ create table business_hours (
   unique (business_id, day_of_week)
 );
 
+create table availability_exceptions (
+  id uuid primary key default gen_random_uuid(),
+  business_id uuid references businesses(id) on delete cascade not null,
+  date date not null,
+  type text not null check (type in ('block','open')),
+  start_time time not null,
+  end_time time not null,
+  reason text,
+  constraint valid_range check (end_time > start_time)
+);
+
 -- RLS (Row Level Security)
 alter table businesses enable row level security;
 alter table services enable row level security;

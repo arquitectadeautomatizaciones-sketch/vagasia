@@ -75,6 +75,18 @@ export interface BusinessHours {
   is_closed: boolean;
 }
 
+export type ExceptionType = "block" | "open";
+
+export interface AvailabilityException {
+  id: string;
+  business_id: string;
+  date: string; // "YYYY-MM-DD"
+  type: ExceptionType;
+  start_time: string; // "HH:MM"
+  end_time: string;   // "HH:MM"
+  reason: string | null;
+}
+
 export type Database = {
   public: {
     Tables: {
@@ -84,6 +96,7 @@ export type Database = {
       appointments: { Row: Appointment; Insert: Omit<Appointment, "id" | "created_at">; Update: Partial<Appointment> };
       waiting_list: { Row: WaitingListEntry; Insert: Omit<WaitingListEntry, "id" | "created_at">; Update: Partial<WaitingListEntry> };
       business_hours: { Row: BusinessHours; Insert: Omit<BusinessHours, "id">; Update: Partial<BusinessHours> };
+      availability_exceptions: { Row: AvailabilityException; Insert: Omit<AvailabilityException, "id">; Update: Partial<AvailabilityException> };
     };
   };
 };

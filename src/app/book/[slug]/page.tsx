@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
-import { mockServices } from "@/lib/mock-data";
+import { useState, useMemo } from "react";
+import { mockServices, mockAppointments, mockBusinessHours, mockExceptions } from "@/lib/mock-data";
+import { getAvailableSlots, isDayAvailable, dateToString } from "@/lib/availability";
 import { Zap, MapPin, Phone, ChevronLeft, ChevronRight, Check, Clock } from "lucide-react";
 
 const DAYS_ABBR = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
@@ -10,26 +11,10 @@ const MONTH_NAMES = [
   "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro",
 ];
 
-const TIME_SLOTS = [
-  "09:00", "09:30", "10:00", "10:30", "11:00", "11:30",
-  "12:00", "12:30", "14:00", "14:30", "15:00", "15:30",
-  "16:00", "16:30", "17:00", "17:30", "18:00", "18:30",
-];
-
-const UNAVAILABLE = new Set(["10:00", "14:00", "15:30"]);
-
 type Step = "service" | "datetime" | "contact" | "confirmed";
 
-function getDaysInMonth(year: number, month: number) {
-  return new Date(year, month + 1, 0).getDate();
-}
-
-function getFirstDayOfMonth(year: number, month: number) {
-  return new Date(year, month, 1).getDay();
-}
-
 export default function BookingPage() {
-  const today = new Date(2026, 3, 26);
+  const today = new Date(2026, 3, 27); // fixed demo date
   const [step, setStep] = useState<Step>("service");
   const [selectedService, setSelectedService] = useState<string | null>(null);
   const [viewDate, setViewDate] = useState({ year: 2026, month: 3 });
@@ -39,20 +24,13 @@ export default function BookingPage() {
 
   const service = mockServices.find((s) => s.id === selectedService);
 
-  const daysInMonth = getDaysInMonth(viewDate.year, viewDate.month);
-  const firstDay = getFirstDayOfMonth(viewDate.year, viewDate.month);
+  const firstDay = new Date(viewDate.year, viewDate.month, 1).getDay();
+  const daysInMonth = new Date(viewDate.year, viewDate.month + 1, 0).getDate();
 
-  const prevMonth = () => {
-    setViewDate((d) =>
-      d.month === 0 ? { year: d.year - 1, month: 11 } : { year: d.year, month: d.month - 1 }
-    );
-  };
-
-  const nextMonth = () => {
-    setViewDate((d) =>
-      d.month === 11 ? { year: d.year + 1, month: 0 } : { year: d.year, month: d.month + 1 }
-    );
-  };
+  const prevMonth = () =>
+    setViewDate((d) => d.month === 0 ? { year: d.year - 1, month: 11 } : { year: d.year, month: d.month - 1 });
+  const nextMonth = () =>
+    setViewDate((d) => d.month === 11 ? { year: d.year + 1, month: 0 } : { year: d.year, month: d.month + 1 });
 
   const isPastDay = (day: number) => {
     const d = new Date(viewDate.year, viewDate.month, day);
@@ -64,6 +42,29 @@ export default function BookingPage() {
     viewDate.month === today.getMonth() &&
     day === today.getDate();
 
+  const isDayClickable = (day: number) => {
+    if (isPastDay(day)) return false;
+    const dateStr = dateToString(viewDate.year, viewDate.month, day);
+    return isDayAvailable(dateStr, mockBusinessHours, mockExceptions);
+  };
+
+  // Compute real available slots for the selected date
+  const availableSlots = useMemo(() => {
+    if (!selectedDay || !service) return [];
+    const dateStr = dateToString(viewDate.year, viewDate.month, selectedDay);
+    return getAvailableSlots(
+      dateStr,
+      mockBusinessHours,
+      mockExceptions,
+      mockAppointments,
+      service.duration_minutes,
+    );
+  }, [selectedDay, viewDate, service]);
+
+  const selectedDateStr = selectedDay
+    ? dateToString(viewDate.year, viewDate.month, selectedDay)
+    : null;
+
   if (step === "confirmed") {
     return (
       <div className="min-h-screen bg-[#0F172A] flex items-center justify-center p-4">
@@ -72,13 +73,12 @@ export default function BookingPage() {
             <Check size={28} className="text-[#2DD4BF]" />
           </div>
           <h2 className="text-lg font-semibold text-white">Marcação confirmada!</h2>
-          <p className="mt-2 text-sm text-slate-400">
-            Receberás uma confirmação no WhatsApp.
-          </p>
+          <p className="mt-2 text-sm text-slate-400">Receberás uma confirmação no WhatsApp.</p>
           <div className="mt-5 rounded-lg bg-[#0F172A] p-4 text-left space-y-2 text-sm">
             <Row label="Serviço" value={service?.name ?? ""} />
             <Row label="Data" value={`${selectedDay} de ${MONTH_NAMES[viewDate.month]} de ${viewDate.year}`} />
             <Row label="Hora" value={selectedTime ?? ""} />
+            <Row label="Duração" value={`${service?.duration_minutes} min`} />
             <Row label="Nome" value={form.name} />
           </div>
           <button
@@ -144,18 +144,13 @@ export default function BookingPage() {
             {mockServices.filter((s) => s.active).map((s) => (
               <button
                 key={s.id}
-                onClick={() => { setSelectedService(s.id); setStep("datetime"); }}
-                className={`w-full flex items-center justify-between rounded-xl border p-4 text-left transition-colors ${
-                  selectedService === s.id
-                    ? "border-[#00B4D8] bg-[#00B4D8]/5"
-                    : "border-white/5 bg-[#1E293B] hover:border-white/10"
-                }`}
+                onClick={() => { setSelectedService(s.id); setSelectedDay(null); setSelectedTime(null); setStep("datetime"); }}
+                className="w-full flex items-center justify-between rounded-xl border border-white/5 bg-[#1E293B] p-4 text-left hover:border-white/10 transition-colors"
               >
                 <div>
                   <p className="text-sm font-semibold text-white">{s.name}</p>
                   <p className="flex items-center gap-1 text-xs text-slate-500 mt-0.5">
-                    <Clock size={11} />
-                    {s.duration_minutes} minutos
+                    <Clock size={11} />{s.duration_minutes} minutos
                   </p>
                 </div>
                 <p className="text-lg font-bold text-[#2DD4BF]">€{s.price}</p>
@@ -177,38 +172,39 @@ export default function BookingPage() {
             {/* Calendar */}
             <div className="rounded-xl border border-white/5 bg-[#1E293B] p-4">
               <div className="flex items-center justify-between mb-4">
-                <button onClick={prevMonth} className="text-slate-500 hover:text-white">
-                  <ChevronLeft size={16} />
-                </button>
-                <p className="text-sm font-semibold text-white">
-                  {MONTH_NAMES[viewDate.month]} {viewDate.year}
-                </p>
-                <button onClick={nextMonth} className="text-slate-500 hover:text-white">
-                  <ChevronRight size={16} />
-                </button>
+                <button onClick={prevMonth} className="text-slate-500 hover:text-white"><ChevronLeft size={16} /></button>
+                <p className="text-sm font-semibold text-white">{MONTH_NAMES[viewDate.month]} {viewDate.year}</p>
+                <button onClick={nextMonth} className="text-slate-500 hover:text-white"><ChevronRight size={16} /></button>
               </div>
+
               <div className="grid grid-cols-7 gap-1 mb-2">
                 {DAYS_ABBR.map((d) => (
                   <p key={d} className="text-center text-[10px] font-semibold text-slate-600 py-1">{d}</p>
                 ))}
               </div>
+
               <div className="grid grid-cols-7 gap-1">
-                {Array.from({ length: firstDay }).map((_, i) => <div key={`empty-${i}`} />)}
+                {Array.from({ length: firstDay }).map((_, i) => <div key={`e${i}`} />)}
                 {Array.from({ length: daysInMonth }).map((_, i) => {
                   const day = i + 1;
-                  const past = isPastDay(day);
+                  const clickable = isDayClickable(day);
                   const todayClass = isToday(day);
                   const selected = selectedDay === day;
+
                   return (
                     <button
                       key={day}
-                      disabled={past}
-                      onClick={() => setSelectedDay(day)}
+                      disabled={!clickable}
+                      onClick={() => { setSelectedDay(day); setSelectedTime(null); }}
+                      title={!clickable && !isPastDay(day) ? "Sem disponibilidade" : undefined}
                       className={`aspect-square flex items-center justify-center rounded-lg text-sm transition-colors ${
-                        past ? "text-slate-700 cursor-not-allowed" :
-                        selected ? "bg-[#00B4D8] text-white font-semibold" :
-                        todayClass ? "border border-[#00B4D8] text-[#00B4D8] hover:bg-[#00B4D8]/10" :
-                        "text-slate-300 hover:bg-white/5"
+                        !clickable
+                          ? "text-slate-700 cursor-not-allowed"
+                          : selected
+                          ? "bg-[#00B4D8] text-white font-semibold"
+                          : todayClass
+                          ? "border border-[#00B4D8] text-[#00B4D8] hover:bg-[#00B4D8]/10"
+                          : "text-slate-300 hover:bg-white/5"
                       }`}
                     >
                       {day}
@@ -221,28 +217,38 @@ export default function BookingPage() {
             {/* Time slots */}
             {selectedDay && (
               <div>
-                <p className="text-xs font-semibold text-slate-400 mb-3">
-                  Horários disponíveis — {selectedDay} de {MONTH_NAMES[viewDate.month]}
-                </p>
-                <div className="grid grid-cols-4 gap-2 sm:grid-cols-6">
-                  {TIME_SLOTS.map((t) => {
-                    const unavailable = UNAVAILABLE.has(t);
-                    return (
+                <div className="flex items-center justify-between mb-3">
+                  <p className="text-xs font-semibold text-slate-400">
+                    Horários disponíveis — {selectedDay} de {MONTH_NAMES[viewDate.month]}
+                  </p>
+                  <p className="text-[10px] text-slate-600">
+                    {availableSlots.length} vaga{availableSlots.length !== 1 ? "s" : ""} disponíve{availableSlots.length !== 1 ? "is" : "l"}
+                  </p>
+                </div>
+
+                {availableSlots.length === 0 ? (
+                  <div className="rounded-xl border border-white/5 bg-[#1E293B] p-6 text-center text-sm text-slate-500">
+                    Sem horários disponíveis para este dia.
+                    <br />
+                    <span className="text-xs text-slate-600">Tenta outro dia ou entra em contacto direto.</span>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-4 gap-2 sm:grid-cols-6">
+                    {availableSlots.map((t) => (
                       <button
                         key={t}
-                        disabled={unavailable}
                         onClick={() => setSelectedTime(t)}
-                        className={`rounded-lg py-2 text-sm font-medium transition-colors ${
-                          unavailable ? "bg-white/3 text-slate-700 cursor-not-allowed line-through" :
-                          selectedTime === t ? "bg-[#00B4D8] text-white" :
-                          "bg-[#1E293B] text-slate-300 hover:bg-white/10"
+                        className={`rounded-lg py-2.5 text-sm font-medium transition-colors ${
+                          selectedTime === t
+                            ? "bg-[#00B4D8] text-white"
+                            : "bg-[#1E293B] text-slate-300 hover:bg-white/10 border border-white/5"
                         }`}
                       >
                         {t}
                       </button>
-                    );
-                  })}
-                </div>
+                    ))}
+                  </div>
+                )}
               </div>
             )}
 
@@ -251,7 +257,7 @@ export default function BookingPage() {
                 onClick={() => setStep("contact")}
                 className="w-full rounded-lg bg-[#00B4D8] py-3 text-sm font-semibold text-white hover:bg-[#0090b0] transition-colors"
               >
-                Continuar
+                Continuar com {selectedTime}
               </button>
             )}
           </div>
@@ -272,6 +278,7 @@ export default function BookingPage() {
               <Row label="Serviço" value={service?.name ?? ""} />
               <Row label="Data" value={`${selectedDay} de ${MONTH_NAMES[viewDate.month]} de ${viewDate.year}`} />
               <Row label="Hora" value={selectedTime ?? ""} />
+              <Row label="Duração" value={`${service?.duration_minutes} min`} />
               <Row label="Preço" value={`€${service?.price}`} />
             </div>
 
@@ -313,7 +320,6 @@ export default function BookingPage() {
             >
               Confirmar marcação
             </button>
-
             <p className="text-center text-[11px] text-slate-600">
               Ao confirmar, receberás uma mensagem de confirmação no WhatsApp.
             </p>
@@ -323,9 +329,7 @@ export default function BookingPage() {
 
       {/* Footer */}
       <footer className="border-t border-white/5 mt-10 py-4 text-center text-[11px] text-slate-700">
-        Powered by{" "}
-        <span className="text-[#00B4D8] font-semibold">VagasIA</span>
-        {" "}— Transforme vagas vazias em faturação.
+        Powered by <span className="text-[#00B4D8] font-semibold">VagasIA</span> — Transforme vagas vazias em faturação.
       </footer>
     </div>
   );
