@@ -1,10 +1,16 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import AppLayout from "@/components/AppLayout";
-import { mockBusinessHours, mockExceptions } from "@/lib/mock-data";
+import { mockBusinessHours } from "@/lib/mock-data";
 import { getDayRanges, dateToString } from "@/lib/availability";
 import type { AvailabilityException, ExceptionType } from "@/lib/types";
+import {
+  fetchExceptions,
+  createException,
+  deleteException,
+  DEMO_BUSINESS_ID,
+} from "./actions";
 import {
   Building2,
   Scissors,
@@ -59,11 +65,22 @@ function DisponibilidadeTab() {
   const today = new Date(2026, 3, 27);
   const [viewDate, setViewDate] = useState({ year: 2026, month: 3 });
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
-  const [exceptions, setExceptions] = useState<AvailabilityException[]>(mockExceptions);
+  const [exceptions, setExceptions] = useState<AvailabilityException[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState<{ type: ExceptionType; start: string; end: string; reason: string }>({
     type: "block", start: "09:00", end: "13:00", reason: "",
   });
+
+  // Carregar exceções do Supabase ao montar
+  useEffect(() => {
+    fetchExceptions()
+      .then(setExceptions)
+      .catch((e) => setError(e.message))
+      .finally(() => setLoading(false));
+  }, []);
 
   const firstDay = new Date(viewDate.year, viewDate.month, 1).getDay();
   const daysInMonth = new Date(viewDate.year, viewDate.month + 1, 0).getDate();
@@ -90,30 +107,74 @@ function DisponibilidadeTab() {
     ? mockBusinessHours.find((h) => h.day_of_week === selectedDayOfWeek)
     : null;
 
-  const addException = () => {
+  const addException = async () => {
     if (!selectedDate || !form.start || !form.end) return;
-    const newEx: AvailabilityException = {
-      id: "ex_" + Date.now(),
-      business_id: "b1",
-      date: selectedDate,
-      type: form.type,
-      start_time: form.start,
-      end_time: form.end,
-      reason: form.reason || null,
-    };
-    setExceptions((prev) => [...prev, newEx]);
-    setShowForm(false);
-    setForm({ type: "block", start: "09:00", end: "13:00", reason: "" });
+    setSaving(true);
+    setError(null);
+    try {
+      const created = await createException({
+        business_id: DEMO_BUSINESS_ID,
+        date: selectedDate,
+        type: form.type,
+        start_time: form.start,
+        end_time: form.end,
+        reason: form.reason || null,
+      });
+      setExceptions((prev) =>
+        [...prev, created].sort((a, b) =>
+          a.date !== b.date ? a.date.localeCompare(b.date) : a.start_time.localeCompare(b.start_time)
+        )
+      );
+      setShowForm(false);
+      setForm({ type: "block", start: "09:00", end: "13:00", reason: "" });
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setSaving(false);
+    }
   };
 
-  const removeException = (id: string) => setExceptions((prev) => prev.filter((e) => e.id !== id));
+  const removeException = async (id: string) => {
+    const snapshot = exceptions;
+    setExceptions((prev) => prev.filter((e) => e.id !== id)); // otimista
+    try {
+      await deleteException(id);
+    } catch (e) {
+      setExceptions(snapshot); // reverter se falhar
+      setError((e as Error).message);
+    }
+  };
 
   const upcomingExceptions = exceptions
     .filter((e) => e.date >= dateToString(today.getFullYear(), today.getMonth(), today.getDate()))
     .sort((a, b) => a.date.localeCompare(b.date));
 
+  if (loading) {
+    return (
+      <div className="rounded-xl border border-white/5 bg-[#1E293B] p-10 flex items-center justify-center gap-3 text-sm text-slate-500">
+        <span className="h-4 w-4 animate-spin rounded-full border-2 border-[#00B4D8] border-t-transparent" />
+        A carregar exceções…
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-4">
+      {/* Error banner */}
+      {error && (
+        <div className="rounded-lg border border-red-500/20 bg-red-500/10 px-4 py-3 text-xs text-red-400 flex items-start justify-between gap-3">
+          <span>
+            <strong>Erro Supabase:</strong> {error}
+            {error.includes("does not exist") && (
+              <span className="block mt-1 text-red-500/70">
+                Corre o ficheiro <code>supabase-schema.sql</code> no SQL Editor do Supabase.
+              </span>
+            )}
+          </span>
+          <button onClick={() => setError(null)} className="shrink-0 text-red-400/60 hover:text-red-400">×</button>
+        </div>
+      )}
+
       <div className="flex gap-4">
         {/* Calendar */}
         <div className="rounded-xl border border-white/5 bg-[#1E293B] p-4 w-72 shrink-0">
@@ -320,9 +381,11 @@ function DisponibilidadeTab() {
                   <div className="flex gap-2 pt-1">
                     <button
                       onClick={addException}
-                      className="flex-1 rounded-lg bg-[#00B4D8] py-2 text-xs font-semibold text-white hover:bg-[#0090b0] transition-colors"
+                      disabled={saving}
+                      className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-[#00B4D8] py-2 text-xs font-semibold text-white hover:bg-[#0090b0] transition-colors disabled:opacity-60"
                     >
-                      Guardar exceção
+                      {saving && <span className="h-3 w-3 animate-spin rounded-full border-2 border-white border-t-transparent" />}
+                      {saving ? "A guardar…" : "Guardar exceção"}
                     </button>
                     <button
                       onClick={() => setShowForm(false)}

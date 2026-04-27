@@ -84,6 +84,8 @@ create table availability_exceptions (
   constraint valid_range check (end_time > start_time)
 );
 
+alter table availability_exceptions enable row level security;
+
 -- RLS (Row Level Security)
 alter table businesses enable row level security;
 alter table services enable row level security;
@@ -97,3 +99,19 @@ create policy "Public read services" on services for select using (active = true
 create policy "Public read business_hours" on business_hours for select using (true);
 create policy "Public insert appointments" on appointments for insert with check (true);
 create policy "Public insert clients" on clients for insert with check (true);
+
+-- availability_exceptions: gerida via service_role (server actions)
+-- sem políticas anon — acesso apenas pelo backend com service_role key
+
+-- Seed: negócio de demonstração
+-- UUID fixo para usar como DEMO_BUSINESS_ID no código
+insert into businesses (id, name, slug, category, phone, email, address)
+values (
+  '00000000-0000-0000-0000-000000000001',
+  'Cabeleireira Lisboa',
+  'cabeleireira-lisboa',
+  'Cabeleireira',
+  '+351 21 000 0000',
+  'info@cabeleireira-lisboa.pt',
+  'Rua Augusta 123, Lisboa'
+) on conflict (id) do nothing;
