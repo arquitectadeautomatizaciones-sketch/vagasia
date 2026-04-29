@@ -9,7 +9,6 @@ import {
   Clock,
   Settings,
   Zap,
-  ExternalLink,
   CalendarCheck,
 } from "lucide-react";
 
@@ -59,17 +58,6 @@ export default function Sidebar() {
         })}
       </nav>
 
-      {/* Page pública link */}
-      <div className="p-3 border-t border-white/5">
-        <Link
-          href="/book/cabeleireira-lisboa"
-          target="_blank"
-          className="flex items-center gap-2.5 rounded-lg px-3 py-2.5 text-xs text-slate-500 hover:text-[#2DD4BF] transition-colors"
-        >
-          <ExternalLink size={14} />
-          Ver página pública
-        </Link>
-      </div>
     </aside>
   );
 }

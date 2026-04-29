@@ -507,7 +507,6 @@ export default function ConfiguracoesPage() {
                 <h2 className="text-sm font-semibold text-white">Perfil do Negócio</h2>
                 <div className="grid gap-4 sm:grid-cols-2">
                   <Field label="Nome do negócio" defaultValue="Cabeleireira Lisboa" />
-                  <Field label="Slug (URL pública)" defaultValue="cabeleireira-lisboa" prefix="vagasia.pt/book/" />
                   <div className="sm:col-span-2">
                     <label className="block text-xs font-medium text-slate-400 mb-1.5">Categoria</label>
                     <select className="w-full rounded-lg border border-white/10 bg-[#0F172A] px-3 py-2.5 text-sm text-white outline-none focus:border-[#00B4D8]/50">
