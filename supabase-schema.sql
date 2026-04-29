@@ -84,6 +84,21 @@ create table availability_exceptions (
   constraint valid_range check (end_time > start_time)
 );
 
+create table available_slots (
+  id uuid primary key default gen_random_uuid(),
+  business_id uuid references businesses(id) on delete cascade not null,
+  date date not null,
+  start_time time not null,
+  end_time time not null,
+  service_id uuid references services(id) on delete set null,
+  status text not null default 'disponivel' check (status in ('disponivel','reservada','cancelada')),
+  notes text,
+  created_at timestamptz default now(),
+  constraint valid_slot_range check (end_time > start_time)
+);
+
+alter table available_slots enable row level security;
+
 alter table availability_exceptions enable row level security;
 
 -- RLS (Row Level Security)

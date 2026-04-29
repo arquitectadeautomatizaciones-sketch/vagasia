@@ -87,6 +87,21 @@ export interface AvailabilityException {
   reason: string | null;
 }
 
+export type SlotStatus = "disponivel" | "reservada" | "cancelada";
+
+export interface AvailableSlot {
+  id: string;
+  business_id: string;
+  date: string; // "YYYY-MM-DD"
+  start_time: string; // "HH:MM"
+  end_time: string; // "HH:MM"
+  service_id: string | null;
+  status: SlotStatus;
+  notes: string | null;
+  created_at: string;
+  service?: Service;
+}
+
 export type Database = {
   public: {
     Tables: {
@@ -97,6 +112,7 @@ export type Database = {
       waiting_list: { Row: WaitingListEntry; Insert: Omit<WaitingListEntry, "id" | "created_at">; Update: Partial<WaitingListEntry> };
       business_hours: { Row: BusinessHours; Insert: Omit<BusinessHours, "id">; Update: Partial<BusinessHours> };
       availability_exceptions: { Row: AvailabilityException; Insert: Omit<AvailabilityException, "id">; Update: Partial<AvailabilityException> };
+      available_slots: { Row: AvailableSlot; Insert: Omit<AvailableSlot, "id" | "created_at" | "service">; Update: Partial<Omit<AvailableSlot, "service">> };
     };
   };
 };

@@ -10,6 +10,7 @@ import {
   Settings,
   Zap,
   ExternalLink,
+  CalendarCheck,
 } from "lucide-react";
 
 const navItems = [
@@ -17,6 +18,7 @@ const navItems = [
   { href: "/marcacoes", label: "Marcações", icon: CalendarDays },
   { href: "/clientes", label: "Clientes", icon: Users },
   { href: "/lista-espera", label: "Lista de Espera", icon: Clock },
+  { href: "/vagas-disponiveis", label: "Vagas Disponíveis", icon: CalendarCheck },
   { href: "/configuracoes", label: "Configurações", icon: Settings },
 ];
 
