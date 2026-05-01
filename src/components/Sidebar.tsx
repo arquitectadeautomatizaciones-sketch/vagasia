@@ -1,5 +1,6 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
@@ -25,8 +26,17 @@ const navItems = [
   { href: "/configuracoes", label: "Configurações", icon: Settings },
 ];
 
-export default function Sidebar({ businessName }: { businessName: string }) {
+export default function Sidebar() {
   const pathname = usePathname();
+  const [businessName, setBusinessName] = useState("VagasIA");
+
+  useEffect(() => {
+    const supabase = createSupabaseBrowserClient();
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      const name = user?.app_metadata?.business_name as string | undefined;
+      if (name) setBusinessName(name);
+    });
+  }, []);
 
   async function handleLogout() {
     const supabase = createSupabaseBrowserClient();
