@@ -1,7 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
 import { NextRequest, NextResponse } from "next/server";
-
-export const DEMO_BUSINESS_ID = "00000000-0000-0000-0000-000000000001";
+import { getAuthBusinessId, DEMO_BUSINESS_ID } from "@/lib/api-auth";
 
 function admin() {
   return createClient(
@@ -12,10 +11,12 @@ function admin() {
 }
 
 export async function GET() {
+  const businessId = (await getAuthBusinessId()) ?? DEMO_BUSINESS_ID;
+
   const { data, error } = await admin()
     .from("available_slots")
     .select("*, service:service_id(id, name, duration_minutes, price)")
-    .eq("business_id", DEMO_BUSINESS_ID)
+    .eq("business_id", businessId)
     .order("date", { ascending: true })
     .order("start_time", { ascending: true });
 
@@ -27,11 +28,13 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
+  const businessId = (await getAuthBusinessId()) ?? DEMO_BUSINESS_ID;
+
   const body = await req.json();
   const { data, error } = await admin()
     .from("available_slots")
     .insert({
-      business_id: DEMO_BUSINESS_ID,
+      business_id: businessId,
       date: body.date,
       start_time: body.start_time,
       end_time: body.end_time,

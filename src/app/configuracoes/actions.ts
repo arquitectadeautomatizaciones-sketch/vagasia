@@ -1,7 +1,5 @@
 import type { AvailabilityException } from "@/lib/types";
 
-export const DEMO_BUSINESS_ID = "00000000-0000-0000-0000-000000000001";
-
 async function apiFetch(path: string, init?: RequestInit) {
   const res = await fetch(path, init);
   if (!res.ok) {
@@ -17,7 +15,7 @@ export async function fetchExceptions(): Promise<AvailabilityException[]> {
 }
 
 export async function createException(
-  payload: Omit<AvailabilityException, "id">
+  payload: Omit<AvailabilityException, "id" | "business_id">
 ): Promise<AvailabilityException> {
   const res = await apiFetch("/api/exceptions", {
     method: "POST",

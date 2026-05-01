@@ -1,7 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
 import { NextResponse } from "next/server";
-
-const DEMO_BUSINESS_ID = "00000000-0000-0000-0000-000000000001";
+import { getAuthBusinessId, DEMO_BUSINESS_ID } from "@/lib/api-auth";
 
 function admin() {
   return createClient(
@@ -12,10 +11,12 @@ function admin() {
 }
 
 export async function GET() {
+  const businessId = (await getAuthBusinessId()) ?? DEMO_BUSINESS_ID;
+
   const { data, error } = await admin()
     .from("services")
     .select("id, name, duration_minutes, price, active")
-    .eq("business_id", DEMO_BUSINESS_ID)
+    .eq("business_id", businessId)
     .eq("active", true)
     .order("name", { ascending: true });
 

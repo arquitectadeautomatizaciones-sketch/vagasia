@@ -9,7 +9,6 @@ import {
   fetchExceptions,
   createException,
   deleteException,
-  DEMO_BUSINESS_ID,
 } from "./actions";
 import {
   Building2,
@@ -113,7 +112,6 @@ function DisponibilidadeTab() {
     setError(null);
     try {
       const created = await createException({
-        business_id: DEMO_BUSINESS_ID,
         date: selectedDate,
         type: form.type,
         start_time: form.start,

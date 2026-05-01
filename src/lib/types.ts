@@ -2,6 +2,7 @@ export type AppointmentStatus = "confirmada" | "pendente" | "cancelada";
 
 export interface Business {
   id: string;
+  auth_user_id: string | null;
   name: string;
   slug: string;
   category: string;
@@ -102,10 +103,35 @@ export interface AvailableSlot {
   service?: Service;
 }
 
+export type TransactionType = "entrada" | "despesa";
+
+export interface Transaction {
+  id: string;
+  business_id: string;
+  type: TransactionType;
+  amount: number;
+  description: string;
+  created_at: string;
+}
+
 export type Database = {
   public: {
     Tables: {
-      businesses: { Row: Business; Insert: Omit<Business, "id" | "created_at">; Update: Partial<Business> };
+      businesses: {
+        Row: Business;
+        Insert: {
+          name: string;
+          slug: string;
+          category: string;
+          phone: string;
+          email: string;
+          address: string;
+          auth_user_id?: string | null;
+          whatsapp_phone_number_id?: string | null;
+          whatsapp_access_token?: string | null;
+        };
+        Update: Partial<Business>;
+      };
       services: { Row: Service; Insert: Omit<Service, "id">; Update: Partial<Service> };
       clients: { Row: Client; Insert: Omit<Client, "id" | "created_at">; Update: Partial<Client> };
       appointments: { Row: Appointment; Insert: Omit<Appointment, "id" | "created_at">; Update: Partial<Appointment> };
@@ -113,6 +139,7 @@ export type Database = {
       business_hours: { Row: BusinessHours; Insert: Omit<BusinessHours, "id">; Update: Partial<BusinessHours> };
       availability_exceptions: { Row: AvailabilityException; Insert: Omit<AvailabilityException, "id">; Update: Partial<AvailabilityException> };
       available_slots: { Row: AvailableSlot; Insert: Omit<AvailableSlot, "id" | "created_at" | "service">; Update: Partial<Omit<AvailableSlot, "service">> };
+      transactions: { Row: Transaction; Insert: Omit<Transaction, "id" | "created_at">; Update: Partial<Transaction> };
     };
   };
 };

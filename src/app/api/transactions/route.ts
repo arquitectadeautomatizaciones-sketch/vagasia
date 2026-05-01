@@ -15,11 +15,11 @@ export async function GET() {
   if (!businessId) return unauthorizedJson();
 
   const { data, error } = await admin()
-    .from("availability_exceptions")
+    .from("transactions")
     .select("*")
     .eq("business_id", businessId)
-    .order("date", { ascending: true })
-    .order("start_time", { ascending: true });
+    .order("created_at", { ascending: false })
+    .limit(200);
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   return NextResponse.json(data);
@@ -30,9 +30,21 @@ export async function POST(req: NextRequest) {
   if (!businessId) return unauthorizedJson();
 
   const body = await req.json();
+  const { type, amount, description } = body;
+
+  if (!["entrada", "despesa"].includes(type)) {
+    return NextResponse.json({ error: "Tipo inválido" }, { status: 400 });
+  }
+  if (typeof amount !== "number" || amount <= 0) {
+    return NextResponse.json({ error: "Valor inválido" }, { status: 400 });
+  }
+  if (!description?.trim()) {
+    return NextResponse.json({ error: "Descrição obrigatória" }, { status: 400 });
+  }
+
   const { data, error } = await admin()
-    .from("availability_exceptions")
-    .insert({ ...body, business_id: businessId })
+    .from("transactions")
+    .insert({ type, amount, description: description.trim(), business_id: businessId })
     .select()
     .single();
 
