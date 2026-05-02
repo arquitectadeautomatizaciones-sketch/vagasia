@@ -33,9 +33,10 @@ export async function GET() {
 
   const userMap = new Map(users.map((u) => [u.id, u]));
 
-  const professionals = (businesses ?? []).map((b) => {
+  const professionals = (businesses ?? []).flatMap((b) => {
     const u = b.auth_user_id ? userMap.get(b.auth_user_id) : undefined;
-    return {
+    if (u?.app_metadata?.is_admin) return [];
+    return [{
       business_id: b.id,
       business_name: b.name,
       category: b.category,
@@ -48,7 +49,7 @@ export async function GET() {
       user_email: u?.email ?? null,
       user_created_at: u?.created_at ?? null,
       onboarding_completed: !!u?.app_metadata?.onboarding_completed,
-    };
+    }];
   });
 
   return NextResponse.json(professionals);
