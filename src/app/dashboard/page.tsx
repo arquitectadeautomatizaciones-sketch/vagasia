@@ -160,10 +160,10 @@ export default async function DashboardPage() {
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium text-white truncate">
-                      {(appt.client as { name: string } | null)?.name ?? "—"}
+                      {(appt.client as unknown as { name: string } | null)?.name ?? "—"}
                     </p>
                     <p className="text-xs text-slate-500 truncate">
-                      {(appt.service as { name: string } | null)?.name ?? "—"}
+                      {(appt.service as unknown as { name: string } | null)?.name ?? "—"}
                     </p>
                   </div>
                   <p className="text-sm font-semibold text-slate-300">
