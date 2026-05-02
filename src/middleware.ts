@@ -2,8 +2,6 @@ import { NextResponse, type NextRequest } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 
 const PUBLIC_PREFIXES = ["/login", "/register", "/marcar", "/api/whatsapp", "/api/auth", "/auth"];
-const ADMIN_EMAIL = "diana@arquitectadeautomatizaciones.com";
-
 export async function middleware(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request });
 
@@ -44,7 +42,7 @@ export async function middleware(request: NextRequest) {
   }
 
   if (user) {
-    const isAdmin = user.email === ADMIN_EMAIL || !!user.app_metadata?.is_admin;
+    const isAdmin = !!user.app_metadata?.is_admin;
     const onboardingDone = !!user.app_metadata?.onboarding_completed;
     const isOnboarding = pathname.startsWith("/onboarding");
     const isAdminArea = pathname.startsWith("/admin") || pathname.startsWith("/api/admin");

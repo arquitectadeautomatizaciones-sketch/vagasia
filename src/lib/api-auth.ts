@@ -1,8 +1,6 @@
 import { createSupabaseServerClient } from "@/utils/supabase/server";
 import { NextResponse } from "next/server";
 
-export const ADMIN_EMAIL = "diana@arquitectadeautomatizaciones.com";
-
 /**
  * Devolve o business_id do utilizador autenticado lido do app_metadata (sem query extra à BD).
  * Devolve null se não autenticado.
@@ -19,7 +17,7 @@ export async function isAdminUser(): Promise<boolean> {
   const supabase = await createSupabaseServerClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return false;
-  return user.email === ADMIN_EMAIL || !!user.app_metadata?.is_admin;
+  return !!user.app_metadata?.is_admin;
 }
 
 export const unauthorizedJson = () =>
