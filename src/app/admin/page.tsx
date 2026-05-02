@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Zap, Check, X, Loader2, Users, Wifi, Clock } from "lucide-react";
+import { Zap, Check, X, Loader2, Users, Wifi, Clock, LogOut } from "lucide-react";
+import { createBrowserClient } from "@supabase/ssr";
 
 interface Professional {
   business_id: string;
@@ -106,6 +107,15 @@ export default function AdminPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
+  async function handleLogout() {
+    const supabase = createBrowserClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+    );
+    await supabase.auth.signOut();
+    window.location.href = "/login";
+  }
+
   useEffect(() => {
     fetch("/api/admin/professionals")
       .then((r) => r.json())
@@ -132,14 +142,23 @@ export default function AdminPage() {
       {/* Header */}
       <div className="border-b border-white/5 bg-[#1E293B]">
         <div className="mx-auto max-w-7xl px-6 py-4">
-          <div className="flex items-center gap-3">
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#00B4D8]">
-              <Zap size={18} className="text-white" fill="white" />
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#00B4D8]">
+                <Zap size={18} className="text-white" fill="white" />
+              </div>
+              <div>
+                <p className="text-sm font-bold text-white">VagasIA</p>
+                <p className="text-[11px] text-slate-500">Painel de Administração</p>
+              </div>
             </div>
-            <div>
-              <p className="text-sm font-bold text-white">VagasIA</p>
-              <p className="text-[11px] text-slate-500">Painel de Administração</p>
-            </div>
+            <button
+              onClick={handleLogout}
+              className="flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm text-slate-400 transition-colors hover:bg-white/5 hover:text-white"
+            >
+              <LogOut size={15} />
+              Terminar Sessão
+            </button>
           </div>
         </div>
       </div>
