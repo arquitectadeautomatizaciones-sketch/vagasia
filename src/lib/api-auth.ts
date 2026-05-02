@@ -12,7 +12,5 @@ export async function getAuthBusinessId(): Promise<string | null> {
   return (user.app_metadata?.business_id as string) ?? null;
 }
 
-export const DEMO_BUSINESS_ID = "00000000-0000-0000-0000-000000000001";
-
 export const unauthorizedJson = () =>
   NextResponse.json({ error: "Não autenticado." }, { status: 401 });

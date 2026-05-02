@@ -1,6 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
 import { NextRequest, NextResponse } from "next/server";
-import { getAuthBusinessId, DEMO_BUSINESS_ID } from "@/lib/api-auth";
+import { getAuthBusinessId, unauthorizedJson } from "@/lib/api-auth";
 
 function admin() {
   return createClient(
@@ -11,7 +11,8 @@ function admin() {
 }
 
 export async function GET() {
-  const businessId = (await getAuthBusinessId()) ?? DEMO_BUSINESS_ID;
+  const businessId = await getAuthBusinessId();
+  if (!businessId) return unauthorizedJson();
 
   const { data, error } = await admin()
     .from("available_slots")
@@ -28,7 +29,8 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
-  const businessId = (await getAuthBusinessId()) ?? DEMO_BUSINESS_ID;
+  const businessId = await getAuthBusinessId();
+  if (!businessId) return unauthorizedJson();
 
   const body = await req.json();
   const { data, error } = await admin()

@@ -23,6 +23,7 @@ export default function RegisterPage() {
   });
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
+  const [emailExists, setEmailExists] = useState(false);
   const [loading, setLoading] = useState(false);
 
   function field(key: keyof FormData) {
@@ -33,6 +34,7 @@ export default function RegisterPage() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError("");
+    setEmailExists(false);
     setLoading(true);
 
     // 1. Criar conta + negócio via API
@@ -45,7 +47,11 @@ export default function RegisterPage() {
     const data = await res.json().catch(() => ({}));
 
     if (!res.ok) {
-      setError(data.error ?? "Erro ao criar conta. Tente novamente.");
+      if (data.code === "EMAIL_EXISTS") {
+        setEmailExists(true);
+      } else {
+        setError(data.error ?? "Erro ao criar conta. Tente novamente.");
+      }
       setLoading(false);
       return;
     }
@@ -178,6 +184,14 @@ export default function RegisterPage() {
               </div>
             </div>
 
+            {emailExists && (
+              <p className="rounded-lg bg-yellow-500/10 px-3 py-2.5 text-sm text-yellow-400">
+                Este email já tem conta.{" "}
+                <Link href="/login" className="font-semibold underline hover:text-yellow-300">
+                  Clica aqui para entrar.
+                </Link>
+              </p>
+            )}
             {error && (
               <p className="rounded-lg bg-red-500/10 px-3 py-2.5 text-sm text-red-400">
                 {error}

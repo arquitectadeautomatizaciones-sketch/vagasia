@@ -1,5 +1,7 @@
+import { redirect } from "next/navigation";
+import { createClient } from "@supabase/supabase-js";
 import AppLayout from "@/components/AppLayout";
-import { mockAppointments } from "@/lib/mock-data";
+import { getAuthBusinessId } from "@/lib/api-auth";
 import {
   CalendarCheck,
   Banknote,
@@ -31,14 +33,41 @@ function formatTime(dateStr: string) {
   return new Date(dateStr).toLocaleTimeString("pt-PT", { hour: "2-digit", minute: "2-digit" });
 }
 
-export default function DashboardPage() {
-  const today = mockAppointments;
+function adminClient() {
+  return createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    { auth: { persistSession: false } }
+  );
+}
+
+export default async function DashboardPage() {
+  const businessId = await getAuthBusinessId();
+  if (!businessId) redirect("/login");
+
+  const todayStr = new Date().toISOString().split("T")[0];
+
+  const { data: appointments } = await adminClient()
+    .from("appointments")
+    .select("id, starts_at, ends_at, status, price, client:client_id(name), service:service_id(name)")
+    .eq("business_id", businessId)
+    .gte("starts_at", `${todayStr}T00:00:00`)
+    .lte("starts_at", `${todayStr}T23:59:59`)
+    .order("starts_at", { ascending: true });
+
+  const today = appointments ?? [];
   const confirmed = today.filter((a) => a.status === "confirmada");
   const pending = today.filter((a) => a.status === "pendente");
   const cancelled = today.filter((a) => a.status === "cancelada");
-  const revenue = confirmed.reduce((sum, a) => sum + a.price, 0);
-  const confirmationRate = Math.round((confirmed.length / today.length) * 100);
-  const recovered = confirmed.length;
+  const revenue = confirmed.reduce((sum, a) => sum + (a.price ?? 0), 0);
+  const confirmationRate = today.length > 0 ? Math.round((confirmed.length / today.length) * 100) : 0;
+
+  const dateDisplay = new Date().toLocaleDateString("pt-PT", {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  });
 
   const metrics = [
     {
@@ -50,14 +79,14 @@ export default function DashboardPage() {
     },
     {
       label: "Faturação do Dia",
-      value: `€${revenue}`,
-      sub: `${confirmed.length} serviços realizados`,
+      value: `€${revenue.toFixed(2)}`,
+      sub: `${confirmed.length} serviço${confirmed.length !== 1 ? "s" : ""} realizado${confirmed.length !== 1 ? "s" : ""}`,
       icon: Banknote,
       accent: "#2DD4BF",
     },
     {
       label: "Vagas Recuperadas",
-      value: recovered.toString(),
+      value: confirmed.length.toString(),
       sub: `${cancelled.length} cancelamento${cancelled.length !== 1 ? "s" : ""} hoje`,
       icon: TrendingUp,
       accent: "#00B4D8",
@@ -65,7 +94,7 @@ export default function DashboardPage() {
     {
       label: "Taxa de Confirmação",
       value: `${confirmationRate}%`,
-      sub: "Últimas 30 marcações",
+      sub: "Marcações de hoje",
       icon: CheckCircle,
       accent: "#2DD4BF",
     },
@@ -77,9 +106,7 @@ export default function DashboardPage() {
         {/* Header */}
         <div>
           <h1 className="text-xl font-semibold text-white">Dashboard</h1>
-          <p className="text-sm text-slate-400 mt-0.5">
-            Sábado, 26 de abril de 2026
-          </p>
+          <p className="text-sm text-slate-400 mt-0.5 capitalize">{dateDisplay}</p>
         </div>
 
         {/* Metric cards */}
@@ -115,37 +142,43 @@ export default function DashboardPage() {
               Ver tudo
             </a>
           </div>
-          <div className="divide-y divide-white/5">
-            {today.map((appt) => (
-              <div key={appt.id} className="flex items-center gap-4 px-5 py-3.5">
-                <div className="w-16 text-center">
-                  <p className="text-xs font-medium text-slate-300">
-                    {formatTime(appt.starts_at)}
+          {today.length === 0 ? (
+            <p className="px-5 py-8 text-center text-sm text-slate-500">
+              Sem marcações para hoje.
+            </p>
+          ) : (
+            <div className="divide-y divide-white/5">
+              {today.map((appt) => (
+                <div key={appt.id} className="flex items-center gap-4 px-5 py-3.5">
+                  <div className="w-16 text-center">
+                    <p className="text-xs font-medium text-slate-300">
+                      {formatTime(appt.starts_at)}
+                    </p>
+                    <p className="text-[10px] text-slate-600">
+                      {formatTime(appt.ends_at)}
+                    </p>
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-white truncate">
+                      {(appt.client as { name: string } | null)?.name ?? "—"}
+                    </p>
+                    <p className="text-xs text-slate-500 truncate">
+                      {(appt.service as { name: string } | null)?.name ?? "—"}
+                    </p>
+                  </div>
+                  <p className="text-sm font-semibold text-slate-300">
+                    €{(appt.price ?? 0).toFixed(2)}
                   </p>
-                  <p className="text-[10px] text-slate-600">
-                    {formatTime(appt.ends_at)}
-                  </p>
+                  <span
+                    className={`flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-medium ${statusColors(appt.status)}`}
+                  >
+                    <StatusIcon status={appt.status} />
+                    {statusLabel(appt.status)}
+                  </span>
                 </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-white truncate">
-                    {appt.client?.name}
-                  </p>
-                  <p className="text-xs text-slate-500 truncate">
-                    {appt.service?.name}
-                  </p>
-                </div>
-                <p className="text-sm font-semibold text-slate-300">
-                  €{appt.price}
-                </p>
-                <span
-                  className={`flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-medium ${statusColors(appt.status)}`}
-                >
-                  <StatusIcon status={appt.status} />
-                  {statusLabel(appt.status)}
-                </span>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
         </div>
       </div>
     </AppLayout>

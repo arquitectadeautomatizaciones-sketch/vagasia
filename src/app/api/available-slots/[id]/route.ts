@@ -1,6 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
 import { NextRequest, NextResponse } from "next/server";
-import { getAuthBusinessId, DEMO_BUSINESS_ID } from "@/lib/api-auth";
+import { getAuthBusinessId, unauthorizedJson } from "@/lib/api-auth";
 
 function admin() {
   return createClient(
@@ -14,7 +14,8 @@ export async function PATCH(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const businessId = (await getAuthBusinessId()) ?? DEMO_BUSINESS_ID;
+  const businessId = await getAuthBusinessId();
+  if (!businessId) return unauthorizedJson();
   const { id } = await params;
   const body = await req.json();
 
@@ -34,7 +35,8 @@ export async function DELETE(
   _req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const businessId = (await getAuthBusinessId()) ?? DEMO_BUSINESS_ID;
+  const businessId = await getAuthBusinessId();
+  if (!businessId) return unauthorizedJson();
   const { id } = await params;
 
   const { error } = await admin()

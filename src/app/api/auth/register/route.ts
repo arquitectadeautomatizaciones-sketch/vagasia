@@ -25,7 +25,21 @@ export async function POST(req: NextRequest) {
 
   const admin = createSupabaseAdminClient();
 
-  // 1. Criar utilizador no Supabase Auth (sem confirmação de email)
+  // 1a. Verificar se o email já existe
+  const { data: existing } = await admin
+    .from("businesses")
+    .select("id")
+    .eq("email", email.trim())
+    .maybeSingle();
+
+  if (existing) {
+    return NextResponse.json(
+      { error: "Este email já tem conta.", code: "EMAIL_EXISTS" },
+      { status: 409 }
+    );
+  }
+
+  // 1b. Criar utilizador no Supabase Auth (sem confirmação de email)
   const { data: authData, error: authError } = await admin.auth.admin.createUser({
     email: email.trim(),
     password,
@@ -34,10 +48,12 @@ export async function POST(req: NextRequest) {
   });
 
   if (authError) {
-    const msg = authError.message.toLowerCase().includes("already registered")
-      ? "Este email já está registado."
-      : "Não foi possível criar a conta. Tente novamente.";
-    return NextResponse.json({ error: msg }, { status: 400 });
+    // All inputs validated above and no business row found — only remaining
+    // cause of createUser failure is a duplicate auth account.
+    return NextResponse.json(
+      { error: "Este email já tem conta.", code: "EMAIL_EXISTS" },
+      { status: 409 }
+    );
   }
 
   const userId = authData.user.id;
