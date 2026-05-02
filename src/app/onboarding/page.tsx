@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { Zap, Plus, Trash2, ChevronLeft, Check } from "lucide-react";
+import { Zap, Plus, Trash2, ChevronLeft, Check, LogOut } from "lucide-react";
 import { createSupabaseBrowserClient } from "@/utils/supabase/client";
 
 // ——— Types ———
@@ -130,6 +130,11 @@ export default function OnboardingPage() {
 
   // Step 4
   const [apptRows, setApptRows] = useState<ApptInput[]>([]);
+
+  async function handleLogout() {
+    await createSupabaseBrowserClient().auth.signOut();
+    window.location.href = "/login";
+  }
 
   // On mount: check if already onboarded, prefill business name
   useEffect(() => {
@@ -259,12 +264,21 @@ export default function OnboardingPage() {
   return (
     <div className="min-h-screen bg-[#0F172A] p-4">
       <div className="mx-auto max-w-lg">
-        {/* Logo */}
-        <div className="mb-8 flex items-center gap-3 pt-6">
-          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#00B4D8]">
-            <Zap size={18} className="text-white" fill="white" />
+        {/* Logo + logout */}
+        <div className="mb-8 flex items-center justify-between pt-6">
+          <div className="flex items-center gap-3">
+            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#00B4D8]">
+              <Zap size={18} className="text-white" fill="white" />
+            </div>
+            <p className="text-base font-bold tracking-wide text-white">VagasIA</p>
           </div>
-          <p className="text-base font-bold tracking-wide text-white">VagasIA</p>
+          <button
+            onClick={handleLogout}
+            className="flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm text-slate-500 transition-colors hover:bg-white/5 hover:text-slate-300"
+          >
+            <LogOut size={15} />
+            Sair
+          </button>
         </div>
 
         <Progress step={step} />

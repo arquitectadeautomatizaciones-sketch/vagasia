@@ -53,15 +53,15 @@ export async function middleware(request: NextRequest) {
       return NextResponse.redirect(new URL(dest, request.url));
     }
 
-    // /admin area: only admins
-    if (isAdminArea) {
-      if (!isAdmin) {
-        return pathname.startsWith("/api/")
-          ? NextResponse.json({ error: "Não autorizado." }, { status: 403 })
-          : NextResponse.redirect(new URL("/dashboard", request.url));
-      }
-      return supabaseResponse; // admin bypasses all other checks
+    // /admin area: only admins may enter
+    if (isAdminArea && !isAdmin) {
+      return pathname.startsWith("/api/")
+        ? NextResponse.json({ error: "Não autorizado." }, { status: 403 })
+        : NextResponse.redirect(new URL("/dashboard", request.url));
     }
+
+    // Admins bypass all remaining checks — can access any authenticated route
+    if (isAdmin) return supabaseResponse;
 
     // Non-onboarded users stay on /onboarding (API routes exempt)
     if (!onboardingDone && !isOnboarding && !pathname.startsWith("/api/")) {
