@@ -1,5 +1,14 @@
 import { createSupabaseServerClient } from "@/utils/supabase/server";
+import { createClient } from "@supabase/supabase-js";
 import { NextResponse } from "next/server";
+
+function serviceRoleClient() {
+  return createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    { auth: { persistSession: false } }
+  );
+}
 
 /**
  * Devolve o business_id do utilizador autenticado lido do app_metadata (sem query extra à BD).
@@ -12,12 +21,16 @@ export async function getAuthBusinessId(): Promise<string | null> {
   return (user.app_metadata?.business_id as string) ?? null;
 }
 
-/** Devolve true se o utilizador autenticado é administrador. */
+/**
+ * Devolve true se o utilizador autenticado é administrador.
+ * Usa o service role para ler app_metadata fresco da BD, ignorando o JWT.
+ */
 export async function isAdminUser(): Promise<boolean> {
   const supabase = await createSupabaseServerClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return false;
-  return !!user.app_metadata?.is_admin;
+  const { data: { user: fresh } } = await serviceRoleClient().auth.admin.getUserById(user.id);
+  return !!fresh?.app_metadata?.is_admin;
 }
 
 export const unauthorizedJson = () =>

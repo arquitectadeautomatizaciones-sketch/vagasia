@@ -42,29 +42,17 @@ export async function middleware(request: NextRequest) {
   }
 
   if (user) {
-    const isAdmin = !!user.app_metadata?.is_admin;
     const onboardingDone = !!user.app_metadata?.onboarding_completed;
     const isOnboarding = pathname.startsWith("/onboarding");
-    const isAdminArea = pathname.startsWith("/admin") || pathname.startsWith("/api/admin");
 
-    // Auth/landing pages → home screen based on role
+    // Auth/landing pages → home screen
     if (pathname === "/login" || pathname === "/register" || pathname === "/") {
-      const dest = isAdmin ? "/admin" : (onboardingDone ? "/dashboard" : "/onboarding");
+      const dest = onboardingDone ? "/dashboard" : "/onboarding";
       return NextResponse.redirect(new URL(dest, request.url));
     }
 
-    // /admin area: only admins may enter
-    if (isAdminArea && !isAdmin) {
-      return pathname.startsWith("/api/")
-        ? NextResponse.json({ error: "Não autorizado." }, { status: 403 })
-        : NextResponse.redirect(new URL("/dashboard", request.url));
-    }
-
-    // Admins bypass all remaining checks — can access any authenticated route
-    if (isAdmin) return supabaseResponse;
-
-    // Non-onboarded users stay on /onboarding (API routes exempt)
-    if (!onboardingDone && !isOnboarding && !pathname.startsWith("/api/")) {
+    // Non-onboarded users stay on /onboarding (API routes and /admin exempt — they gate themselves)
+    if (!onboardingDone && !isOnboarding && !pathname.startsWith("/api/") && !pathname.startsWith("/admin")) {
       return NextResponse.redirect(new URL("/onboarding", request.url));
     }
 
