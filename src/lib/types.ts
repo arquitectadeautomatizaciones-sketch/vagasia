@@ -11,6 +11,7 @@ export interface Business {
   address: string;
   whatsapp_phone_number_id: string | null;
   whatsapp_access_token: string | null;
+  whatsapp_number: string | null;
   created_at: string;
 }
 

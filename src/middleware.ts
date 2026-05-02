@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 
 const PUBLIC_PREFIXES = ["/login", "/register", "/marcar", "/api/whatsapp", "/api/auth", "/auth"];
+const ADMIN_EMAIL = "diana@arquitectadeautomatizaciones.com";
 
 export async function middleware(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request });
@@ -43,22 +44,33 @@ export async function middleware(request: NextRequest) {
   }
 
   if (user) {
+    const isAdmin = user.email === ADMIN_EMAIL || !!user.app_metadata?.is_admin;
     const onboardingDone = !!user.app_metadata?.onboarding_completed;
     const isOnboarding = pathname.startsWith("/onboarding");
+    const isAdminArea = pathname.startsWith("/admin") || pathname.startsWith("/api/admin");
 
-    // From auth/landing pages → onboarding or dashboard
+    // Auth/landing pages → home screen based on role
     if (pathname === "/login" || pathname === "/register" || pathname === "/") {
-      return NextResponse.redirect(
-        new URL(onboardingDone ? "/dashboard" : "/onboarding", request.url)
-      );
+      const dest = isAdmin ? "/admin" : (onboardingDone ? "/dashboard" : "/onboarding");
+      return NextResponse.redirect(new URL(dest, request.url));
     }
 
-    // Non-onboarded users stay on /onboarding (API routes pass through freely)
+    // /admin area: only admins
+    if (isAdminArea) {
+      if (!isAdmin) {
+        return pathname.startsWith("/api/")
+          ? NextResponse.json({ error: "Não autorizado." }, { status: 403 })
+          : NextResponse.redirect(new URL("/dashboard", request.url));
+      }
+      return supabaseResponse; // admin bypasses all other checks
+    }
+
+    // Non-onboarded users stay on /onboarding (API routes exempt)
     if (!onboardingDone && !isOnboarding && !pathname.startsWith("/api/")) {
       return NextResponse.redirect(new URL("/onboarding", request.url));
     }
 
-    // Already-onboarded users are sent away from /onboarding
+    // Onboarded users away from /onboarding
     if (onboardingDone && isOnboarding) {
       return NextResponse.redirect(new URL("/dashboard", request.url));
     }
