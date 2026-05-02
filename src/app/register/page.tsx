@@ -69,7 +69,7 @@ export default function RegisterPage() {
       return;
     }
 
-    window.location.href = "/dashboard";
+    window.location.href = "/onboarding";
   }
 
   const inputClass =
