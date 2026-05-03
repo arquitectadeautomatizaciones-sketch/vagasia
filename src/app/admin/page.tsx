@@ -1,17 +1,21 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { Zap, Check, X, Loader2, Users, Wifi, Clock, LogOut } from "lucide-react";
+import { useState, useEffect, useCallback } from "react";
+import {
+  Zap, Loader2, Users, CheckCircle2, XCircle,
+  Power, PowerOff, Check, X, LogOut, Building2,
+} from "lucide-react";
 import { createBrowserClient } from "@supabase/ssr";
 
-interface Professional {
+interface Negocio {
   business_id: string;
   business_name: string;
+  auth_user_id: string | null;
   category: string;
   phone: string;
   email: string;
   whatsapp_number: string | null;
-  whatsapp_phone_number_id: string | null;
+  is_active: boolean;
   created_at: string;
   user_name: string | null;
   user_email: string | null;
@@ -23,19 +27,89 @@ type SaveState = "idle" | "saving" | "saved" | "error";
 
 function formatDate(iso: string | null): string {
   if (!iso) return "—";
-  return new Date(iso).toLocaleDateString("pt-PT", { day: "2-digit", month: "short", year: "numeric" });
+  return new Date(iso).toLocaleDateString("es-CO", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  });
 }
 
-function StatusBadge({ active }: { active: boolean }) {
+function EstadoBadge({ activo }: { activo: boolean }) {
   return (
     <span
-      className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-semibold ${
-        active ? "bg-[#2DD4BF]/15 text-[#2DD4BF]" : "bg-yellow-500/15 text-yellow-400"
+      className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-semibold ${
+        activo
+          ? "bg-[#2DD4BF]/15 text-[#2DD4BF]"
+          : "bg-red-500/15 text-red-400"
       }`}
     >
-      <span className={`h-1.5 w-1.5 rounded-full ${active ? "bg-[#2DD4BF]" : "bg-yellow-400"}`} />
-      {active ? "Ativa" : "Pendente"}
+      <span className={`h-1.5 w-1.5 rounded-full ${activo ? "bg-[#2DD4BF]" : "bg-red-400"}`} />
+      {activo ? "Activo" : "Inactivo"}
     </span>
+  );
+}
+
+function ToggleActivo({
+  businessId,
+  activo,
+  onChange,
+}: {
+  businessId: string;
+  activo: boolean;
+  onChange: (id: string, nuevoEstado: boolean) => void;
+}) {
+  const [state, setState] = useState<SaveState>("idle");
+
+  async function toggle() {
+    setState("saving");
+    try {
+      const res = await fetch(`/api/admin/businesses/${businessId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ is_active: !activo }),
+      });
+      if (!res.ok) { setState("error"); return; }
+      onChange(businessId, !activo);
+      setState("saved");
+      setTimeout(() => setState("idle"), 2000);
+    } catch {
+      setState("error");
+      setTimeout(() => setState("idle"), 2000);
+    }
+  }
+
+  if (state === "saving") {
+    return (
+      <div className="flex h-8 w-8 items-center justify-center">
+        <Loader2 size={15} className="animate-spin text-slate-500" />
+      </div>
+    );
+  }
+
+  if (state === "error") {
+    return (
+      <span
+        title="Error al actualizar"
+        className="flex h-8 w-8 items-center justify-center rounded-lg bg-red-500/15 text-red-400"
+      >
+        <X size={14} />
+      </span>
+    );
+  }
+
+  return (
+    <button
+      onClick={toggle}
+      title={activo ? "Desactivar negocio" : "Activar negocio"}
+      className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${
+        activo
+          ? "bg-red-500/10 text-red-400 hover:bg-red-500/20"
+          : "bg-[#2DD4BF]/10 text-[#2DD4BF] hover:bg-[#2DD4BF]/20"
+      }`}
+    >
+      {activo ? <PowerOff size={13} /> : <Power size={13} />}
+      {activo ? "Desactivar" : "Activar"}
+    </button>
   );
 }
 
@@ -60,7 +134,7 @@ function WhatsAppEditor({
         body: JSON.stringify({ whatsapp_number: value.trim() || null }),
       });
       const data = await res.json().catch(() => ({}));
-      if (!res.ok) { setErrMsg(data.error ?? "Erro"); setState("error"); return; }
+      if (!res.ok) { setErrMsg(data.error ?? "Error"); setState("error"); return; }
       setState("saved");
       setTimeout(() => setState("idle"), 2000);
     } catch {
@@ -71,10 +145,10 @@ function WhatsAppEditor({
   const dirty = value.trim() !== (initial ?? "");
 
   return (
-    <div className="flex items-center gap-2 min-w-[220px]">
+    <div className="flex items-center gap-2 min-w-[200px]">
       <input
         type="text"
-        placeholder="+351XXXXXXXXX"
+        placeholder="+57XXXXXXXXXX"
         value={value}
         onChange={(e) => { setValue(e.target.value); setState("idle"); }}
         className="flex-1 rounded-lg border border-white/10 bg-[#0F172A] px-3 py-1.5 text-sm text-white placeholder-slate-600 focus:border-[#00B4D8] focus:outline-none"
@@ -103,7 +177,7 @@ function WhatsAppEditor({
 }
 
 export default function AdminPage() {
-  const [professionals, setProfessionals] = useState<Professional[]>([]);
+  const [negocios, setNegocios] = useState<Negocio[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -116,25 +190,31 @@ export default function AdminPage() {
     window.location.href = "/login";
   }
 
+  const handleToggle = useCallback((id: string, nuevoEstado: boolean) => {
+    setNegocios((prev) =>
+      prev.map((n) => (n.business_id === id ? { ...n, is_active: nuevoEstado } : n))
+    );
+  }, []);
+
   useEffect(() => {
     fetch("/api/admin/professionals")
       .then((r) => r.json())
       .then((data) => {
-        if (Array.isArray(data)) setProfessionals(data);
-        else setError(data.error ?? "Erro ao carregar dados.");
+        if (Array.isArray(data)) setNegocios(data);
+        else setError(data.error ?? "Error al cargar datos.");
       })
-      .catch(() => setError("Erro de rede."))
+      .catch(() => setError("Error de red."))
       .finally(() => setLoading(false));
   }, []);
 
-  const total = professionals.length;
-  const ativas = professionals.filter((p) => !!p.whatsapp_number).length;
-  const pendentes = total - ativas;
+  const total = negocios.length;
+  const activos = negocios.filter((n) => n.is_active).length;
+  const inactivos = total - activos;
 
   const stats = [
-    { label: "Total",     value: total,    icon: Users, color: "#00B4D8" },
-    { label: "Ativas",    value: ativas,   icon: Wifi,  color: "#2DD4BF" },
-    { label: "Pendentes", value: pendentes, icon: Clock, color: "#F59E0B" },
+    { label: "Total negocios",  value: total,    icon: Building2,    color: "#00B4D8" },
+    { label: "Activos",         value: activos,  icon: CheckCircle2, color: "#2DD4BF" },
+    { label: "Inactivos",       value: inactivos, icon: XCircle,     color: "#f87171" },
   ];
 
   return (
@@ -149,7 +229,7 @@ export default function AdminPage() {
               </div>
               <div>
                 <p className="text-sm font-bold text-white">VagasIA</p>
-                <p className="text-[11px] text-slate-500">Painel de Administração</p>
+                <p className="text-[11px] text-slate-500">Panel de Administración</p>
               </div>
             </div>
             <button
@@ -157,15 +237,24 @@ export default function AdminPage() {
               className="flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm text-slate-400 transition-colors hover:bg-white/5 hover:text-white"
             >
               <LogOut size={15} />
-              Terminar Sessão
+              Cerrar sesión
             </button>
           </div>
         </div>
       </div>
 
-      <div className="mx-auto max-w-7xl px-6 py-8">
+      <div className="mx-auto max-w-7xl px-6 py-8 space-y-6">
+
+        {/* Título */}
+        <div>
+          <h1 className="text-xl font-bold text-white">Negocios registrados</h1>
+          <p className="mt-0.5 text-sm text-slate-400">
+            Gestiona el acceso de cada negocio a VagasIA
+          </p>
+        </div>
+
         {/* Stats */}
-        <div className="mb-8 grid grid-cols-3 gap-4">
+        <div className="grid grid-cols-3 gap-4">
           {stats.map((s) => {
             const Icon = s.icon;
             return (
@@ -179,16 +268,25 @@ export default function AdminPage() {
                     <Icon size={16} style={{ color: s.color }} />
                   </div>
                 </div>
-                <p className="mt-3 text-3xl font-bold text-white">{loading ? "—" : s.value}</p>
+                <p className="mt-3 text-3xl font-bold text-white">
+                  {loading ? "—" : s.value}
+                </p>
               </div>
             );
           })}
         </div>
 
-        {/* Table */}
+        {/* Tabla */}
         <div className="rounded-xl border border-white/5 bg-[#1E293B]">
-          <div className="px-6 py-4 border-b border-white/5">
-            <h2 className="text-sm font-semibold text-white">Profissionais Registadas</h2>
+          <div className="flex items-center justify-between px-6 py-4 border-b border-white/5">
+            <h2 className="text-sm font-semibold text-white">
+              Lista de negocios
+            </h2>
+            {!loading && (
+              <p className="text-xs text-slate-500">
+                {total} {total === 1 ? "negocio" : "negocios"} en total
+              </p>
+            )}
           </div>
 
           {loading && (
@@ -201,46 +299,83 @@ export default function AdminPage() {
             <p className="px-6 py-8 text-center text-sm text-red-400">{error}</p>
           )}
 
-          {!loading && !error && professionals.length === 0 && (
-            <p className="px-6 py-8 text-center text-sm text-slate-500">Sem profissionais registadas.</p>
+          {!loading && !error && negocios.length === 0 && (
+            <p className="px-6 py-8 text-center text-sm text-slate-500">
+              No hay negocios registrados.
+            </p>
           )}
 
-          {!loading && !error && professionals.length > 0 && (
+          {!loading && !error && negocios.length > 0 && (
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="border-b border-white/5 text-left text-xs font-medium text-slate-500">
-                    <th className="px-6 py-3">Profissional</th>
+                  <tr className="border-b border-white/5 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
+                    <th className="px-6 py-3">Negocio</th>
                     <th className="px-4 py-3">Email</th>
-                    <th className="px-4 py-3">Telefone</th>
-                    <th className="px-4 py-3">Registo</th>
+                    <th className="px-4 py-3">Registro</th>
                     <th className="px-4 py-3 text-center">Onboarding</th>
                     <th className="px-4 py-3">Estado</th>
-                    <th className="px-4 py-3">Número WhatsApp</th>
+                    <th className="px-4 py-3">WhatsApp</th>
+                    <th className="px-4 py-3">Acciones</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-white/5">
-                  {professionals.map((p) => (
-                    <tr key={p.business_id} className="hover:bg-white/[0.02] transition-colors">
+                  {negocios.map((n) => (
+                    <tr
+                      key={n.business_id}
+                      className={`transition-colors hover:bg-white/[0.02] ${
+                        !n.is_active ? "opacity-60" : ""
+                      }`}
+                    >
+                      {/* Negocio */}
                       <td className="px-6 py-4">
-                        <p className="font-medium text-white">{p.user_name ?? "—"}</p>
-                        <p className="text-xs text-slate-500">{p.business_name} · {p.category}</p>
+                        <p className="font-medium text-white">
+                          {n.user_name ?? "—"}
+                        </p>
+                        <p className="text-xs text-slate-500">
+                          {n.business_name} · {n.category}
+                        </p>
                       </td>
-                      <td className="px-4 py-4 text-slate-400">{p.user_email ?? p.email ?? "—"}</td>
-                      <td className="px-4 py-4 text-slate-400">{p.phone || "—"}</td>
-                      <td className="px-4 py-4 text-slate-400">{formatDate(p.user_created_at)}</td>
+
+                      {/* Email */}
+                      <td className="px-4 py-4 text-slate-400">
+                        {n.user_email ?? n.email ?? "—"}
+                      </td>
+
+                      {/* Fecha registro */}
+                      <td className="px-4 py-4 text-slate-400">
+                        {formatDate(n.user_created_at)}
+                      </td>
+
+                      {/* Onboarding */}
                       <td className="px-4 py-4 text-center">
-                        {p.onboarding_completed ? (
+                        {n.onboarding_completed ? (
                           <Check size={15} className="mx-auto text-[#2DD4BF]" />
                         ) : (
                           <X size={15} className="mx-auto text-slate-600" />
                         )}
                       </td>
+
+                      {/* Estado activo/inactivo */}
                       <td className="px-4 py-4">
-                        <StatusBadge active={!!p.whatsapp_number} />
+                        <EstadoBadge activo={n.is_active} />
                       </td>
+
+                      {/* WhatsApp */}
                       <td className="px-4 py-4">
-                        <WhatsAppEditor businessId={p.business_id} initial={p.whatsapp_number} />
+                        <WhatsAppEditor
+                          businessId={n.business_id}
+                          initial={n.whatsapp_number}
+                        />
+                      </td>
+
+                      {/* Botón activar/desactivar */}
+                      <td className="px-4 py-4">
+                        <ToggleActivo
+                          businessId={n.business_id}
+                          activo={n.is_active}
+                          onChange={handleToggle}
+                        />
                       </td>
                     </tr>
                   ))}
@@ -249,6 +384,10 @@ export default function AdminPage() {
             </div>
           )}
         </div>
+
+        <p className="text-center text-xs text-slate-700">
+          Panel exclusivo para administradoras · VagasIA
+        </p>
       </div>
     </div>
   );

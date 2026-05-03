@@ -20,7 +20,7 @@ export async function GET() {
   // All real businesses (exclude the demo seed row)
   const { data: businesses, error: bizError } = await db
     .from("businesses")
-    .select("id, name, category, phone, email, whatsapp_number, whatsapp_phone_number_id, created_at, auth_user_id")
+    .select("id, name, category, phone, email, whatsapp_number, whatsapp_phone_number_id, is_active, created_at, auth_user_id")
     .not("auth_user_id", "is", null)
     .neq("id", "00000000-0000-0000-0000-000000000001")
     .order("created_at", { ascending: false });
@@ -39,11 +39,13 @@ export async function GET() {
     return [{
       business_id: b.id,
       business_name: b.name,
+      auth_user_id: b.auth_user_id,
       category: b.category,
       phone: b.phone,
       email: b.email,
       whatsapp_number: b.whatsapp_number ?? null,
       whatsapp_phone_number_id: b.whatsapp_phone_number_id ?? null,
+      is_active: b.is_active ?? true,
       created_at: b.created_at,
       user_name: (u?.user_metadata?.name as string) ?? null,
       user_email: u?.email ?? null,

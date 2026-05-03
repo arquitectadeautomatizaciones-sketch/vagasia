@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 
-const PUBLIC_PREFIXES = ["/login", "/register", "/marcar", "/api/whatsapp", "/api/auth", "/auth"];
+const PUBLIC_PREFIXES = ["/login", "/register", "/marcar", "/api/whatsapp", "/api/auth", "/auth", "/suspended"];
 export async function middleware(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request });
 
@@ -42,6 +42,14 @@ export async function middleware(request: NextRequest) {
   }
 
   if (user) {
+    // is_active defaults to true when not set (existing users before the column was added)
+    const isActive = user.app_metadata?.is_active !== false;
+
+    // Suspended accounts: only /suspended and public routes allowed
+    if (!isActive && !pathname.startsWith("/suspended") && !pathname.startsWith("/api/") && !pathname.startsWith("/admin")) {
+      return NextResponse.redirect(new URL("/suspended", request.url));
+    }
+
     const onboardingDone = !!user.app_metadata?.onboarding_completed;
     const hasBusinessId = !!user.app_metadata?.business_id;
     const isReady = onboardingDone && hasBusinessId;
