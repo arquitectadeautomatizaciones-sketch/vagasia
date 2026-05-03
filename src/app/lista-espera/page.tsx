@@ -1,26 +1,28 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import AppLayout from "@/components/AppLayout";
-import { mockWaitingList } from "@/lib/mock-data";
 import type { WaitingListEntry } from "@/lib/types";
-import { Clock, Bell, BellOff, Trash2, Plus, CheckCheck } from "lucide-react";
+import { Clock, Bell, BellOff, Trash2, Plus, CheckCheck, Loader2 } from "lucide-react";
 
 function WaitingCard({ entry, onNotify, onRemove }: {
   entry: WaitingListEntry;
   onNotify: (id: string) => void;
   onRemove: (id: string) => void;
 }) {
+  const client = entry.client as unknown as { name: string } | undefined;
+  const service = entry.service as unknown as { name: string } | undefined;
+
   return (
     <div className="rounded-xl border border-white/5 bg-[#1E293B] p-4">
       <div className="flex items-start justify-between gap-3">
         <div className="flex items-center gap-3 min-w-0">
           <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#00B4D8]/20 text-sm font-semibold text-[#00B4D8]">
-            {entry.client?.name.charAt(0)}
+            {(client?.name ?? "?").charAt(0)}
           </div>
           <div className="min-w-0">
-            <p className="text-sm font-semibold text-white truncate">{entry.client?.name}</p>
-            <p className="text-xs text-slate-500 truncate">{entry.service?.name}</p>
+            <p className="text-sm font-semibold text-white truncate">{client?.name ?? "—"}</p>
+            <p className="text-xs text-slate-500 truncate">{service?.name ?? "—"}</p>
           </div>
         </div>
         <span
@@ -90,7 +92,20 @@ function WaitingCard({ entry, onNotify, onRemove }: {
 }
 
 export default function ListaEsperaPage() {
-  const [list, setList] = useState<WaitingListEntry[]>(mockWaitingList);
+  const [list, setList] = useState<WaitingListEntry[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetch("/api/waiting-list")
+      .then((r) => r.json())
+      .then((data) => {
+        if (Array.isArray(data)) setList(data);
+        else setError(data.error ?? "Erro ao carregar lista de espera.");
+      })
+      .catch(() => setError("Erro ao carregar lista de espera."))
+      .finally(() => setLoading(false));
+  }, []);
 
   const handleNotify = (id: string) => {
     setList((prev) =>
@@ -113,7 +128,9 @@ export default function ListaEsperaPage() {
           <div>
             <h1 className="text-xl font-semibold text-white">Lista de Espera</h1>
             <p className="text-sm text-slate-400 mt-0.5">
-              {waiting.length} cliente{waiting.length !== 1 ? "s" : ""} à espera de vaga
+              {loading
+                ? "A carregar…"
+                : `${waiting.length} cliente${waiting.length !== 1 ? "s" : ""} à espera de vaga`}
             </p>
           </div>
           <button className="flex items-center gap-2 rounded-lg bg-[#00B4D8] px-4 py-2 text-sm font-medium text-white hover:bg-[#0090b0] transition-colors">
@@ -122,60 +139,76 @@ export default function ListaEsperaPage() {
           </button>
         </div>
 
-        {/* Info banner */}
-        {waiting.length > 0 && (
-          <div className="rounded-lg border border-[#00B4D8]/20 bg-[#00B4D8]/5 px-4 py-3 text-xs text-[#00B4D8]">
-            <strong>{waiting.length}</strong> cliente{waiting.length !== 1 ? "s" : ""} aguarda{waiting.length === 1 ? "" : "m"} vaga.
-            Quando surgir um cancelamento, notifica automaticamente via WhatsApp.
+        {loading && (
+          <div className="flex items-center justify-center py-16">
+            <Loader2 size={24} className="animate-spin text-slate-600" />
           </div>
         )}
 
-        {/* Waiting */}
-        {waiting.length > 0 && (
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-3">
-              A aguardar ({waiting.length})
-            </p>
-            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-              {waiting.map((entry) => (
-                <WaitingCard
-                  key={entry.id}
-                  entry={entry}
-                  onNotify={handleNotify}
-                  onRemove={handleRemove}
-                />
-              ))}
-            </div>
+        {error && (
+          <div className="rounded-lg border border-red-500/20 bg-red-500/10 px-4 py-3 text-xs text-red-400">
+            {error}
           </div>
         )}
 
-        {/* Notified */}
-        {notified.length > 0 && (
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-3">
-              Notificados ({notified.length})
-            </p>
-            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-              {notified.map((entry) => (
-                <WaitingCard
-                  key={entry.id}
-                  entry={entry}
-                  onNotify={handleNotify}
-                  onRemove={handleRemove}
-                />
-              ))}
-            </div>
-          </div>
-        )}
+        {!loading && !error && (
+          <>
+            {/* Info banner */}
+            {waiting.length > 0 && (
+              <div className="rounded-lg border border-[#00B4D8]/20 bg-[#00B4D8]/5 px-4 py-3 text-xs text-[#00B4D8]">
+                <strong>{waiting.length}</strong> cliente{waiting.length !== 1 ? "s" : ""} aguarda{waiting.length === 1 ? "" : "m"} vaga.
+                Quando surgir um cancelamento, notifica automaticamente via WhatsApp.
+              </div>
+            )}
 
-        {list.length === 0 && (
-          <div className="rounded-xl border border-white/5 bg-[#1E293B] py-16 text-center">
-            <Clock size={32} className="mx-auto text-slate-700 mb-3" />
-            <p className="text-sm text-slate-500">Lista de espera vazia.</p>
-            <p className="text-xs text-slate-600 mt-1">
-              Adiciona clientes para notificá-los automaticamente quando surgir uma vaga.
-            </p>
-          </div>
+            {/* Waiting */}
+            {waiting.length > 0 && (
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-3">
+                  A aguardar ({waiting.length})
+                </p>
+                <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                  {waiting.map((entry) => (
+                    <WaitingCard
+                      key={entry.id}
+                      entry={entry}
+                      onNotify={handleNotify}
+                      onRemove={handleRemove}
+                    />
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Notified */}
+            {notified.length > 0 && (
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-3">
+                  Notificados ({notified.length})
+                </p>
+                <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                  {notified.map((entry) => (
+                    <WaitingCard
+                      key={entry.id}
+                      entry={entry}
+                      onNotify={handleNotify}
+                      onRemove={handleRemove}
+                    />
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {list.length === 0 && (
+              <div className="rounded-xl border border-white/5 bg-[#1E293B] py-16 text-center">
+                <Clock size={32} className="mx-auto text-slate-700 mb-3" />
+                <p className="text-sm text-slate-500">Lista de espera vazia.</p>
+                <p className="text-xs text-slate-600 mt-1">
+                  Adiciona clientes para notificá-los automaticamente quando surgir uma vaga.
+                </p>
+              </div>
+            )}
+          </>
         )}
       </div>
     </AppLayout>

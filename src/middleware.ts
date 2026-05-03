@@ -43,21 +43,23 @@ export async function middleware(request: NextRequest) {
 
   if (user) {
     const onboardingDone = !!user.app_metadata?.onboarding_completed;
+    const hasBusinessId = !!user.app_metadata?.business_id;
+    const isReady = onboardingDone && hasBusinessId;
     const isOnboarding = pathname.startsWith("/onboarding");
 
     // Auth/landing pages → home screen
     if (pathname === "/login" || pathname === "/register" || pathname === "/") {
-      const dest = onboardingDone ? "/dashboard" : "/onboarding";
-      return NextResponse.redirect(new URL(dest, request.url));
+      return NextResponse.redirect(new URL(isReady ? "/dashboard" : "/onboarding", request.url));
     }
 
-    // Non-onboarded users stay on /onboarding (API routes and /admin exempt — they gate themselves)
-    if (!onboardingDone && !isOnboarding && !pathname.startsWith("/api/") && !pathname.startsWith("/admin")) {
+    // Users without a business or incomplete onboarding stay on /onboarding
+    // (API routes and /admin exempt — they gate themselves)
+    if (!isReady && !isOnboarding && !pathname.startsWith("/api/") && !pathname.startsWith("/admin")) {
       return NextResponse.redirect(new URL("/onboarding", request.url));
     }
 
-    // Onboarded users away from /onboarding
-    if (onboardingDone && isOnboarding) {
+    // Fully onboarded users redirected away from /onboarding
+    if (isReady && isOnboarding) {
       return NextResponse.redirect(new URL("/dashboard", request.url));
     }
   }

@@ -1,13 +1,19 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import AppLayout from "@/components/AppLayout";
-import { mockClients, mockAppointments } from "@/lib/mock-data";
-import type { Client } from "@/lib/types";
-import { Search, Plus, ChevronRight, Phone, Mail, CalendarDays } from "lucide-react";
+import type { Client, Appointment } from "@/lib/types";
+import { Search, Plus, ChevronRight, Phone, Mail, CalendarDays, Loader2 } from "lucide-react";
 
 function ClientDrawer({ client, onClose }: { client: Client; onClose: () => void }) {
-  const history = mockAppointments.filter((a) => a.client_id === client.id);
+  const [history, setHistory] = useState<Appointment[]>([]);
+
+  useEffect(() => {
+    fetch(`/api/appointments?client_id=${client.id}`)
+      .then((r) => r.json())
+      .then((data) => { if (Array.isArray(data)) setHistory(data); })
+      .catch(() => {});
+  }, [client.id]);
 
   return (
     <div className="fixed inset-0 z-40 flex">
@@ -60,17 +66,20 @@ function ClientDrawer({ client, onClose }: { client: Client; onClose: () => void
               <p className="text-xs text-slate-600">Sem marcações registadas.</p>
             ) : (
               <div className="space-y-2">
-                {history.map((a) => (
-                  <div key={a.id} className="rounded-lg bg-[#0F172A] px-3 py-2.5">
-                    <div className="flex justify-between items-start">
-                      <p className="text-xs font-medium text-white">{a.service?.name}</p>
-                      <p className="text-xs text-[#2DD4BF]">€{a.price}</p>
+                {history.map((a) => {
+                  const service = a.service as unknown as { name: string } | undefined;
+                  return (
+                    <div key={a.id} className="rounded-lg bg-[#0F172A] px-3 py-2.5">
+                      <div className="flex justify-between items-start">
+                        <p className="text-xs font-medium text-white">{service?.name ?? "—"}</p>
+                        <p className="text-xs text-[#2DD4BF]">€{a.price}</p>
+                      </div>
+                      <p className="text-[10px] text-slate-600 mt-0.5">
+                        {new Date(a.starts_at).toLocaleDateString("pt-PT")}
+                      </p>
                     </div>
-                    <p className="text-[10px] text-slate-600 mt-0.5">
-                      {new Date(a.starts_at).toLocaleDateString("pt-PT")}
-                    </p>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>
@@ -81,10 +90,24 @@ function ClientDrawer({ client, onClose }: { client: Client; onClose: () => void
 }
 
 export default function ClientesPage() {
+  const [clients, setClients] = useState<Client[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [selected, setSelected] = useState<Client | null>(null);
 
-  const filtered = mockClients.filter(
+  useEffect(() => {
+    fetch("/api/clients")
+      .then((r) => r.json())
+      .then((data) => {
+        if (Array.isArray(data)) setClients(data);
+        else setError(data.error ?? "Erro ao carregar clientes.");
+      })
+      .catch(() => setError("Erro ao carregar clientes."))
+      .finally(() => setLoading(false));
+  }, []);
+
+  const filtered = clients.filter(
     (c) =>
       c.name.toLowerCase().includes(search.toLowerCase()) ||
       c.phone.includes(search)
@@ -97,7 +120,9 @@ export default function ClientesPage() {
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-xl font-semibold text-white">Clientes</h1>
-            <p className="text-sm text-slate-400 mt-0.5">{mockClients.length} clientes registados</p>
+            <p className="text-sm text-slate-400 mt-0.5">
+              {loading ? "A carregar…" : `${clients.length} clientes registados`}
+            </p>
           </div>
           <button className="flex items-center gap-2 rounded-lg bg-[#00B4D8] px-4 py-2 text-sm font-medium text-white hover:bg-[#0090b0] transition-colors">
             <Plus size={15} />
@@ -118,65 +143,73 @@ export default function ClientesPage() {
 
         {/* Table */}
         <div className="rounded-xl border border-white/5 bg-[#1E293B] overflow-hidden">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-white/5 text-[11px] uppercase tracking-wider text-slate-500">
-                <th className="px-5 py-3 text-left font-semibold">Cliente</th>
-                <th className="px-5 py-3 text-left font-semibold hidden md:table-cell">Telefone</th>
-                <th className="px-5 py-3 text-right font-semibold hidden sm:table-cell">Marcações</th>
-                <th className="px-5 py-3 text-right font-semibold hidden sm:table-cell">Total gasto</th>
-                <th className="px-5 py-3 text-right font-semibold hidden lg:table-cell">Última visita</th>
-                <th className="px-5 py-3" />
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-white/5">
-              {filtered.map((client) => (
-                <tr
-                  key={client.id}
-                  onClick={() => setSelected(client)}
-                  className="hover:bg-white/2 cursor-pointer transition-colors"
-                >
-                  <td className="px-5 py-3.5">
-                    <div className="flex items-center gap-3">
-                      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#00B4D8]/20 text-xs font-semibold text-[#00B4D8]">
-                        {client.name.charAt(0)}
-                      </div>
-                      <div>
-                        <p className="font-medium text-white">{client.name}</p>
-                        {client.notes && (
-                          <p className="text-[10px] text-slate-600 truncate max-w-[150px]">{client.notes}</p>
-                        )}
-                      </div>
-                    </div>
-                  </td>
-                  <td className="px-5 py-3.5 text-slate-400 hidden md:table-cell">
-                    <div className="flex items-center gap-1.5">
-                      <Phone size={12} />
-                      {client.phone}
-                    </div>
-                  </td>
-                  <td className="px-5 py-3.5 text-right text-slate-300 hidden sm:table-cell">
-                    <div className="flex items-center justify-end gap-1.5">
-                      <CalendarDays size={12} className="text-slate-600" />
-                      {client.total_appointments}
-                    </div>
-                  </td>
-                  <td className="px-5 py-3.5 text-right font-semibold text-[#2DD4BF] hidden sm:table-cell">
-                    €{client.total_spent}
-                  </td>
-                  <td className="px-5 py-3.5 text-right text-slate-500 text-xs hidden lg:table-cell">
-                    {client.last_appointment
-                      ? new Date(client.last_appointment).toLocaleDateString("pt-PT")
-                      : "—"}
-                  </td>
-                  <td className="px-5 py-3.5 text-right">
-                    <ChevronRight size={15} className="text-slate-600 ml-auto" />
-                  </td>
+          {loading ? (
+            <div className="flex items-center justify-center py-16">
+              <Loader2 size={24} className="animate-spin text-slate-600" />
+            </div>
+          ) : error ? (
+            <div className="py-16 text-center text-sm text-red-400">{error}</div>
+          ) : (
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-white/5 text-[11px] uppercase tracking-wider text-slate-500">
+                  <th className="px-5 py-3 text-left font-semibold">Cliente</th>
+                  <th className="px-5 py-3 text-left font-semibold hidden md:table-cell">Telefone</th>
+                  <th className="px-5 py-3 text-right font-semibold hidden sm:table-cell">Marcações</th>
+                  <th className="px-5 py-3 text-right font-semibold hidden sm:table-cell">Total gasto</th>
+                  <th className="px-5 py-3 text-right font-semibold hidden lg:table-cell">Última visita</th>
+                  <th className="px-5 py-3" />
                 </tr>
-              ))}
-            </tbody>
-          </table>
-          {filtered.length === 0 && (
+              </thead>
+              <tbody className="divide-y divide-white/5">
+                {filtered.map((client) => (
+                  <tr
+                    key={client.id}
+                    onClick={() => setSelected(client)}
+                    className="hover:bg-white/2 cursor-pointer transition-colors"
+                  >
+                    <td className="px-5 py-3.5">
+                      <div className="flex items-center gap-3">
+                        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#00B4D8]/20 text-xs font-semibold text-[#00B4D8]">
+                          {client.name.charAt(0)}
+                        </div>
+                        <div>
+                          <p className="font-medium text-white">{client.name}</p>
+                          {client.notes && (
+                            <p className="text-[10px] text-slate-600 truncate max-w-[150px]">{client.notes}</p>
+                          )}
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-5 py-3.5 text-slate-400 hidden md:table-cell">
+                      <div className="flex items-center gap-1.5">
+                        <Phone size={12} />
+                        {client.phone}
+                      </div>
+                    </td>
+                    <td className="px-5 py-3.5 text-right text-slate-300 hidden sm:table-cell">
+                      <div className="flex items-center justify-end gap-1.5">
+                        <CalendarDays size={12} className="text-slate-600" />
+                        {client.total_appointments}
+                      </div>
+                    </td>
+                    <td className="px-5 py-3.5 text-right font-semibold text-[#2DD4BF] hidden sm:table-cell">
+                      €{client.total_spent}
+                    </td>
+                    <td className="px-5 py-3.5 text-right text-slate-500 text-xs hidden lg:table-cell">
+                      {client.last_appointment
+                        ? new Date(client.last_appointment).toLocaleDateString("pt-PT")
+                        : "—"}
+                    </td>
+                    <td className="px-5 py-3.5 text-right">
+                      <ChevronRight size={15} className="text-slate-600 ml-auto" />
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+          {!loading && !error && filtered.length === 0 && (
             <div className="py-12 text-center text-sm text-slate-500">
               Nenhum cliente encontrado.
             </div>
