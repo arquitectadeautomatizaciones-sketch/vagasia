@@ -106,6 +106,20 @@ export interface AvailableSlot {
   service?: Service;
 }
 
+export interface Survey {
+  id: string;
+  business_id: string;
+  client_id: string | null;
+  appointment_id: string | null;
+  token: string;
+  qualidade: number | null;
+  tempo_espera: number | null;
+  simpatia: number | null;
+  answered_at: string | null;
+  created_at: string;
+  client?: { name: string; phone: string } | null;
+}
+
 export type TransactionType = "entrada" | "despesa";
 
 export interface Transaction {

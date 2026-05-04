@@ -14,6 +14,7 @@ import {
   Wallet,
   LogOut,
   Cake,
+  Star,
 } from "lucide-react";
 import { createSupabaseBrowserClient } from "@/utils/supabase/client";
 
@@ -24,6 +25,7 @@ const navItems = [
   { href: "/aniversarios", label: "Aniversários", icon: Cake },
   { href: "/lista-espera", label: "Lista de Espera", icon: Clock },
   { href: "/vagas-disponiveis", label: "Vagas Disponíveis", icon: CalendarCheck },
+  { href: "/satisfacao", label: "Satisfação", icon: Star },
   { href: "/financeiro", label: "Financeiro", icon: Wallet },
   { href: "/configuracoes", label: "Configurações", icon: Settings },
 ];
