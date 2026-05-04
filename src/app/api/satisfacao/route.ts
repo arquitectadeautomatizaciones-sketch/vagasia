@@ -38,10 +38,26 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
-  const businessId = await getAuthBusinessId();
-  if (!businessId) return unauthorizedJson();
-
   const body = await request.json().catch(() => ({}));
+
+  // Autenticação: API key (acesso externo) ou sessão (dashboard interno)
+  let businessId: string | null = null;
+  const apiKey = request.headers.get("x-api-key");
+  const expectedKey = process.env.VAGASIA_API_KEY;
+
+  if (apiKey) {
+    if (!expectedKey || apiKey !== expectedKey) {
+      return NextResponse.json({ error: "Não autorizado: x-api-key inválida." }, { status: 401 });
+    }
+    businessId = body.business_id ?? null;
+    if (!businessId) {
+      return NextResponse.json({ error: "Parâmetro business_id obrigatório." }, { status: 400 });
+    }
+  } else {
+    businessId = await getAuthBusinessId();
+    if (!businessId) return unauthorizedJson();
+  }
+
   const { client_id } = body;
 
   const token = crypto.randomUUID();
