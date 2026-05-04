@@ -44,12 +44,15 @@ export async function POST(request: Request) {
   const body = await request.json().catch(() => ({}));
   const { client_id } = body;
 
+  const token = crypto.randomUUID();
+
   const { data, error } = await createSupabaseAdminClient()
     .from("surveys")
     .insert({
       business_id: businessId,
       client_id: client_id || null,
       appointment_id: null,
+      token,
     })
     .select("token")
     .single();
