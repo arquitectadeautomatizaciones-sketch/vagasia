@@ -2,11 +2,22 @@ import { createSupabaseAdminClient } from "@/utils/supabase/admin";
 import { NextResponse } from "next/server";
 
 export async function GET(request: Request) {
-  const apiKey = request.headers.get("x-api-key");
   const expectedKey = process.env.VAGASIA_API_KEY;
+  const apiKey = request.headers.get("x-api-key");
 
-  if (!expectedKey || !apiKey || apiKey !== expectedKey) {
-    return NextResponse.json({ error: "Não autorizado." }, { status: 401 });
+  console.log("[aniversarios-hoje] VAGASIA_API_KEY configurada:", !!expectedKey);
+  console.log("[aniversarios-hoje] x-api-key recebida:", apiKey ? "presente" : "ausente");
+
+  if (!expectedKey) {
+    console.error("[aniversarios-hoje] Variável de ambiente VAGASIA_API_KEY não está definida.");
+    return NextResponse.json(
+      { error: "Configuração interna em falta: VAGASIA_API_KEY não definida no servidor." },
+      { status: 500 }
+    );
+  }
+
+  if (!apiKey || apiKey !== expectedKey) {
+    return NextResponse.json({ error: "Não autorizado: x-api-key inválida ou ausente." }, { status: 401 });
   }
 
   const { searchParams } = new URL(request.url);
