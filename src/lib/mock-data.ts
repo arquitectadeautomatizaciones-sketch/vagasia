@@ -8,12 +8,12 @@ export const mockServices: Service[] = [
 ];
 
 export const mockClients: Client[] = [
-  { id: "c1", business_id: "b1", name: "Ana Ferreira", phone: "+351 912 345 678", email: "ana.ferreira@email.com", notes: null, total_appointments: 12, total_spent: 320, last_appointment: "2026-04-20", created_at: "2025-01-10" },
-  { id: "c2", business_id: "b1", name: "Mariana Costa", phone: "+351 963 456 789", email: null, notes: "Prefere tarde", total_appointments: 8, total_spent: 240, last_appointment: "2026-04-22", created_at: "2025-02-14" },
-  { id: "c3", business_id: "b1", name: "Sofia Rodrigues", phone: "+351 934 567 890", email: "sofia.r@gmail.com", notes: null, total_appointments: 5, total_spent: 150, last_appointment: "2026-04-15", created_at: "2025-03-01" },
-  { id: "c4", business_id: "b1", name: "Catarina Lima", phone: "+351 915 678 901", email: null, notes: "Alergia a amónia", total_appointments: 3, total_spent: 90, last_appointment: "2026-04-10", created_at: "2025-03-20" },
-  { id: "c5", business_id: "b1", name: "Beatriz Oliveira", phone: "+351 965 789 012", email: "bea.oliveira@email.com", notes: null, total_appointments: 7, total_spent: 210, last_appointment: "2026-04-18", created_at: "2025-01-25" },
-  { id: "c6", business_id: "b1", name: "Inês Santos", phone: "+351 936 890 123", email: null, notes: null, total_appointments: 2, total_spent: 45, last_appointment: "2026-04-05", created_at: "2025-04-01" },
+  { id: "c1", business_id: "b1", name: "Ana Ferreira", phone: "+351 912 345 678", email: "ana.ferreira@email.com", notes: null, data_nascimento: null, total_appointments: 12, total_spent: 320, last_appointment: "2026-04-20", created_at: "2025-01-10" },
+  { id: "c2", business_id: "b1", name: "Mariana Costa", phone: "+351 963 456 789", email: null, notes: "Prefere tarde", data_nascimento: null, total_appointments: 8, total_spent: 240, last_appointment: "2026-04-22", created_at: "2025-02-14" },
+  { id: "c3", business_id: "b1", name: "Sofia Rodrigues", phone: "+351 934 567 890", email: "sofia.r@gmail.com", notes: null, data_nascimento: null, total_appointments: 5, total_spent: 150, last_appointment: "2026-04-15", created_at: "2025-03-01" },
+  { id: "c4", business_id: "b1", name: "Catarina Lima", phone: "+351 915 678 901", email: null, notes: "Alergia a amónia", data_nascimento: null, total_appointments: 3, total_spent: 90, last_appointment: "2026-04-10", created_at: "2025-03-20" },
+  { id: "c5", business_id: "b1", name: "Beatriz Oliveira", phone: "+351 965 789 012", email: "bea.oliveira@email.com", notes: null, data_nascimento: null, total_appointments: 7, total_spent: 210, last_appointment: "2026-04-18", created_at: "2025-01-25" },
+  { id: "c6", business_id: "b1", name: "Inês Santos", phone: "+351 936 890 123", email: null, notes: null, data_nascimento: null, total_appointments: 2, total_spent: 45, last_appointment: "2026-04-05", created_at: "2025-04-01" },
 ];
 
 const today = "2026-04-26";
