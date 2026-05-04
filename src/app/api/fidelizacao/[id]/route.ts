@@ -2,6 +2,64 @@ import { createSupabaseAdminClient } from "@/utils/supabase/admin";
 import { NextResponse } from "next/server";
 import { getAuthBusinessId, unauthorizedJson } from "@/lib/api-auth";
 
+async function sendCardCompleteWhatsApp({
+  clientPhone,
+  clientName,
+  businessName,
+  reward,
+}: {
+  clientPhone: string;
+  clientName: string;
+  businessName: string;
+  reward: string;
+}) {
+  const phoneNumberId = process.env.META_WA_PHONE_NUMBER_ID;
+  const token = process.env.META_WA_TOKEN;
+
+  if (!phoneNumberId || !token) {
+    console.warn("[fidelizacao] META_WA_PHONE_NUMBER_ID ou META_WA_TOKEN não configurados.");
+    return;
+  }
+
+  // Remove tudo excepto dígitos ("+351 912 345 678" → "351912345678")
+  const to = clientPhone.replace(/\D/g, "");
+
+  const res = await fetch(
+    `https://graph.facebook.com/v20.0/${phoneNumberId}/messages`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        messaging_product: "whatsapp",
+        to,
+        type: "template",
+        template: {
+          name: "vagasia_cartao_completo",
+          language: { code: "pt_PT" },
+          components: [
+            {
+              type: "body",
+              parameters: [
+                { type: "text", text: clientName },
+                { type: "text", text: businessName },
+                { type: "text", text: reward },
+              ],
+            },
+          ],
+        },
+      }),
+    }
+  );
+
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    console.error("[fidelizacao] Erro WhatsApp API:", JSON.stringify(err));
+  }
+}
+
 export async function PATCH(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
@@ -17,7 +75,7 @@ export async function PATCH(
 
   const { data: card } = await db
     .from("loyalty_cards")
-    .select("id, total_stamps, goal")
+    .select("id, total_stamps, goal, reward")
     .eq("id", id)
     .eq("business_id", businessId)
     .single();
@@ -51,5 +109,29 @@ export async function PATCH(
     .single();
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+  // Enviar WhatsApp se este carimbo completou o cartão
+  const justCompleted =
+    action === "stamp" && (card.total_stamps + 1) >= card.goal;
+
+  if (justCompleted) {
+    const client = data.client as { name: string; phone: string } | null;
+
+    const { data: business } = await db
+      .from("businesses")
+      .select("name")
+      .eq("id", businessId)
+      .single();
+
+    if (client?.phone && business?.name) {
+      sendCardCompleteWhatsApp({
+        clientPhone: client.phone,
+        clientName: client.name,
+        businessName: business.name,
+        reward: card.reward ?? "recompensa especial",
+      }).catch((err) => console.error("[fidelizacao] Falha ao enviar WhatsApp:", err));
+    }
+  }
+
   return NextResponse.json(data);
 }
