@@ -13,6 +13,7 @@ import {
   CalendarCheck,
   Wallet,
   LogOut,
+  Cake,
 } from "lucide-react";
 import { createSupabaseBrowserClient } from "@/utils/supabase/client";
 
@@ -20,6 +21,7 @@ const navItems = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/marcacoes", label: "Marcações", icon: CalendarDays },
   { href: "/clientes", label: "Clientes", icon: Users },
+  { href: "/aniversarios", label: "Aniversários", icon: Cake },
   { href: "/lista-espera", label: "Lista de Espera", icon: Clock },
   { href: "/vagas-disponiveis", label: "Vagas Disponíveis", icon: CalendarCheck },
   { href: "/financeiro", label: "Financeiro", icon: Wallet },
