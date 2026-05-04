@@ -22,8 +22,8 @@ export async function GET(
     return NextResponse.json({ error: "Este inquérito já foi respondido." }, { status: 409 });
   }
 
-  const client = survey.client as { name: string } | null;
-  const business = survey.business as { name: string } | null;
+  const client = survey.client as unknown as { name: string } | null;
+  const business = survey.business as unknown as { name: string } | null;
 
   return NextResponse.json({
     clientName: client?.name ?? null,
