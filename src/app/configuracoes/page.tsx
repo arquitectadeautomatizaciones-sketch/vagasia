@@ -1,7 +1,9 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
+import Image from "next/image";
 import AppLayout from "@/components/AppLayout";
+import { createSupabaseBrowserClient } from "@/utils/supabase/client";
 import { mockBusinessHours } from "@/lib/mock-data";
 import { getDayRanges, dateToString } from "@/lib/availability";
 import type { AvailabilityException, ExceptionType } from "@/lib/types";
@@ -447,6 +449,56 @@ export default function ConfiguracoesPage() {
   const [saved, setSaved] = useState(false);
   const [hours, setHours] = useState(defaultHours);
 
+  const [logoUrl, setLogoUrl] = useState<string | null>(null);
+  const [logoUploading, setLogoUploading] = useState(false);
+  const [logoError, setLogoError] = useState<string | null>(null);
+  const [businessId, setBusinessId] = useState<string | null>(null);
+  const [businessInitials, setBusinessInitials] = useState("N");
+  const logoInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    fetch("/api/business")
+      .then((r) => r.json())
+      .then((data) => {
+        if (data.logo_url) setLogoUrl(data.logo_url);
+        if (data.id) setBusinessId(data.id);
+        if (data.name) {
+          setBusinessInitials(
+            data.name.split(" ").slice(0, 2).map((w: string) => w[0]).join("").toUpperCase()
+          );
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  async function handleLogoUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file || !businessId) return;
+    setLogoUploading(true);
+    setLogoError(null);
+    try {
+      const ext = file.name.split(".").pop();
+      const path = `${businessId}/logo.${ext}`;
+      const supabase = createSupabaseBrowserClient();
+      const { error: uploadError } = await supabase.storage
+        .from("business-logos")
+        .upload(path, file, { upsert: true, contentType: file.type });
+      if (uploadError) throw new Error(uploadError.message);
+      const { data: { publicUrl } } = supabase.storage.from("business-logos").getPublicUrl(path);
+      const urlWithBust = `${publicUrl}?t=${Date.now()}`;
+      await fetch("/api/business", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ logo_url: urlWithBust }),
+      });
+      setLogoUrl(urlWithBust);
+    } catch (err) {
+      setLogoError((err as Error).message);
+    } finally {
+      setLogoUploading(false);
+    }
+  }
+
   const [services, setServices] = useState([
     { id: "s1", name: "Corte de cabelo", duration: 45, price: 20, active: true },
     { id: "s2", name: "Coloração", duration: 120, price: 60, active: true },
@@ -503,6 +555,44 @@ export default function ConfiguracoesPage() {
             {tab === "perfil" && (
               <div className="rounded-xl border border-white/5 bg-[#1E293B] p-6 space-y-5">
                 <h2 className="text-sm font-semibold text-white">Perfil do Negócio</h2>
+
+                {/* Logo upload */}
+                <div className="flex items-center gap-5 pb-4 border-b border-white/5">
+                  {logoUrl ? (
+                    <Image
+                      src={logoUrl}
+                      alt="Logo"
+                      width={64}
+                      height={64}
+                      className="h-16 w-16 rounded-xl object-cover border border-white/10"
+                    />
+                  ) : (
+                    <div className="flex h-16 w-16 items-center justify-center rounded-xl bg-[#00B4D8]/20 text-lg font-bold text-[#00B4D8]">
+                      {businessInitials}
+                    </div>
+                  )}
+                  <div>
+                    <p className="text-sm font-medium text-white mb-1">Logo do negócio</p>
+                    <p className="text-xs text-slate-500 mb-3">Aparece no painel lateral. PNG, JPG ou WebP, máx. 2 MB.</p>
+                    <input
+                      ref={logoInputRef}
+                      type="file"
+                      accept="image/png,image/jpeg,image/webp"
+                      className="hidden"
+                      onChange={handleLogoUpload}
+                    />
+                    <button
+                      onClick={() => logoInputRef.current?.click()}
+                      disabled={logoUploading}
+                      className="flex items-center gap-2 rounded-lg border border-white/10 px-3 py-1.5 text-xs font-medium text-slate-300 hover:text-white hover:border-white/20 transition-colors disabled:opacity-60"
+                    >
+                      {logoUploading && <span className="h-3 w-3 animate-spin rounded-full border-2 border-[#00B4D8] border-t-transparent" />}
+                      {logoUploading ? "A carregar…" : "Alterar logo"}
+                    </button>
+                    {logoError && <p className="text-[10px] text-red-400 mt-1.5">{logoError}</p>}
+                  </div>
+                </div>
+
                 <div className="grid gap-4 sm:grid-cols-2">
                   <Field label="Nome do negócio" defaultValue="Cabeleireira Lisboa" />
                   <div className="sm:col-span-2">
