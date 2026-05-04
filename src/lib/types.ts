@@ -106,6 +106,17 @@ export interface AvailableSlot {
   service?: Service;
 }
 
+export interface LoyaltyCard {
+  id: string;
+  business_id: string;
+  client_id: string;
+  total_stamps: number;
+  goal: number;
+  reward: string | null;
+  created_at: string;
+  client?: { name: string; phone: string } | null;
+}
+
 export interface Survey {
   id: string;
   business_id: string;
