@@ -3,7 +3,6 @@
 import { useState, useEffect, useRef } from "react";
 import Image from "next/image";
 import AppLayout from "@/components/AppLayout";
-import { createSupabaseBrowserClient } from "@/utils/supabase/client";
 import { mockBusinessHours } from "@/lib/mock-data";
 import { getDayRanges, dateToString } from "@/lib/availability";
 import type { AvailabilityException, ExceptionType } from "@/lib/types";
@@ -473,29 +472,24 @@ export default function ConfiguracoesPage() {
 
   async function handleLogoUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
-    if (!file || !businessId) return;
+    if (!file) return;
     setLogoUploading(true);
     setLogoError(null);
     try {
-      const ext = file.name.split(".").pop();
-      const path = `${businessId}/logo.${ext}`;
-      const supabase = createSupabaseBrowserClient();
-      const { error: uploadError } = await supabase.storage
-        .from("business-logos")
-        .upload(path, file, { upsert: true, contentType: file.type });
-      if (uploadError) throw new Error(uploadError.message);
-      const { data: { publicUrl } } = supabase.storage.from("business-logos").getPublicUrl(path);
-      const urlWithBust = `${publicUrl}?t=${Date.now()}`;
-      await fetch("/api/business", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ logo_url: urlWithBust }),
+      const formData = new FormData();
+      formData.append("logo", file);
+      const res = await fetch("/api/business/logo", {
+        method: "POST",
+        body: formData,
       });
-      setLogoUrl(urlWithBust);
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Erro ao carregar o logótipo.");
+      setLogoUrl(data.logo_url);
     } catch (err) {
       setLogoError((err as Error).message);
     } finally {
       setLogoUploading(false);
+      if (logoInputRef.current) logoInputRef.current.value = "";
     }
   }
 
