@@ -7,6 +7,10 @@ const nextConfig: NextConfig = {
         protocol: "https",
         hostname: "assets.cdn.filesafe.space",
       },
+      {
+        protocol: "https",
+        hostname: "*.supabase.co",
+      },
     ],
   },
 };

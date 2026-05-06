@@ -1,9 +1,10 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
+import Image from "next/image";
 import AppLayout from "@/components/AppLayout";
 import type { Client, Appointment } from "@/lib/types";
-import { Search, Plus, ChevronRight, Phone, Mail, CalendarDays, Loader2, Cake } from "lucide-react";
+import { Search, Plus, ChevronRight, Phone, Mail, CalendarDays, Loader2, Cake, Camera } from "lucide-react";
 
 function isBirthdayToday(dataNascimento: string | null | undefined): boolean {
   if (!dataNascimento) return false;
@@ -15,6 +16,37 @@ function isBirthdayToday(dataNascimento: string | null | undefined): boolean {
 function formatBirthday(dataNascimento: string): string {
   const [, month, day] = dataNascimento.split("-").map(Number);
   return new Date(2000, month - 1, day).toLocaleDateString("pt-PT", { day: "numeric", month: "long" });
+}
+
+function ClientAvatar({
+  client,
+  size = 32,
+  textSize = "text-xs",
+}: {
+  client: Pick<Client, "name" | "photo_url">;
+  size?: number;
+  textSize?: string;
+}) {
+  if (client.photo_url) {
+    return (
+      <Image
+        src={client.photo_url}
+        alt={client.name}
+        width={size}
+        height={size}
+        className="rounded-full object-cover shrink-0"
+        style={{ width: size, height: size }}
+      />
+    );
+  }
+  return (
+    <div
+      className={`flex shrink-0 items-center justify-center rounded-full bg-[#00B4D8]/20 font-semibold text-[#00B4D8] ${textSize}`}
+      style={{ width: size, height: size }}
+    >
+      {client.name.charAt(0)}
+    </div>
+  );
 }
 
 function NewClientModal({ onClose, onCreated }: { onClose: () => void; onCreated: (c: Client) => void }) {
@@ -94,8 +126,21 @@ function NewClientModal({ onClose, onCreated }: { onClose: () => void; onCreated
   );
 }
 
-function ClientDrawer({ client, onClose }: { client: Client; onClose: () => void }) {
+function ClientDrawer({
+  client,
+  onClose,
+  onPhotoUpdate,
+}: {
+  client: Client;
+  onClose: () => void;
+  onPhotoUpdate: (clientId: string, photoUrl: string) => void;
+}) {
   const [history, setHistory] = useState<Appointment[]>([]);
+  const [photoUploading, setPhotoUploading] = useState(false);
+  const [photoError, setPhotoError] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const birthday = isBirthdayToday(client.data_nascimento);
 
   useEffect(() => {
     fetch(`/api/appointments?client_id=${client.id}`)
@@ -104,12 +149,38 @@ function ClientDrawer({ client, onClose }: { client: Client; onClose: () => void
       .catch(() => {});
   }, [client.id]);
 
-  const birthday = isBirthdayToday(client.data_nascimento);
+  async function handlePhotoChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setPhotoUploading(true);
+    setPhotoError(null);
+    try {
+      const formData = new FormData();
+      formData.append("photo", file);
+      const res = await fetch(`/api/clients/${client.id}/photo`, {
+        method: "POST",
+        body: formData,
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setPhotoError(data.error ?? "Erro ao guardar a foto.");
+        return;
+      }
+      onPhotoUpdate(client.id, data.photo_url);
+    } catch {
+      setPhotoError("Erro de ligação. Tenta novamente.");
+    } finally {
+      setPhotoUploading(false);
+      // Reset so the same file can be re-selected
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  }
 
   return (
     <div className="fixed inset-0 z-40 flex">
       <div className="flex-1 bg-black/40" onClick={onClose} />
       <div className="w-80 bg-[#1E293B] border-l border-white/5 flex flex-col h-full overflow-y-auto">
+        {/* Drawer header */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-white/5">
           <div className="flex items-center gap-2">
             <h3 className="text-sm font-semibold text-white">{client.name}</h3>
@@ -121,7 +192,44 @@ function ClientDrawer({ client, onClose }: { client: Client; onClose: () => void
           </div>
           <button onClick={onClose} className="text-slate-500 hover:text-white text-lg leading-none">×</button>
         </div>
+
         <div className="p-5 space-y-5">
+          {/* Photo upload */}
+          <div className="flex flex-col items-center gap-2">
+            <div className="relative group">
+              <ClientAvatar client={client} size={72} textSize="text-xl" />
+              {photoUploading && (
+                <div className="absolute inset-0 flex items-center justify-center rounded-full bg-black/60">
+                  <Loader2 size={20} className="animate-spin text-white" />
+                </div>
+              )}
+              {!photoUploading && (
+                <button
+                  onClick={() => fileInputRef.current?.click()}
+                  className="absolute inset-0 flex items-center justify-center rounded-full bg-black/0 group-hover:bg-black/50 transition-colors opacity-0 group-hover:opacity-100"
+                  title="Alterar foto"
+                >
+                  <Camera size={18} className="text-white" />
+                </button>
+              )}
+            </div>
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              disabled={photoUploading}
+              className="text-xs text-[#00B4D8] hover:underline disabled:opacity-40 transition-opacity"
+            >
+              {client.photo_url ? "Alterar foto" : "Adicionar foto"}
+            </button>
+            {photoError && <p className="text-[11px] text-red-400 text-center">{photoError}</p>}
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/jpeg,image/png,image/webp"
+              className="hidden"
+              onChange={handlePhotoChange}
+            />
+          </div>
+
           {/* Contact */}
           <div className="space-y-2">
             <p className="text-[10px] uppercase tracking-wider text-slate-500 font-semibold">Contacto</p>
@@ -222,6 +330,15 @@ export default function ClientesPage() {
     setShowNewModal(false);
   }
 
+  function handlePhotoUpdate(clientId: string, photoUrl: string) {
+    setClients((prev) =>
+      prev.map((c) => (c.id === clientId ? { ...c, photo_url: photoUrl } : c))
+    );
+    setSelected((prev) =>
+      prev && prev.id === clientId ? { ...prev, photo_url: photoUrl } : prev
+    );
+  }
+
   const filtered = clients.filter(
     (c) =>
       c.name.toLowerCase().includes(search.toLowerCase()) ||
@@ -290,9 +407,7 @@ export default function ClientesPage() {
                     >
                       <td className="px-5 py-3.5">
                         <div className="flex items-center gap-3">
-                          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#00B4D8]/20 text-xs font-semibold text-[#00B4D8]">
-                            {client.name.charAt(0)}
-                          </div>
+                          <ClientAvatar client={client} size={32} />
                           <div>
                             <div className="flex items-center gap-1.5">
                               <p className="font-medium text-white">{client.name}</p>
@@ -342,7 +457,11 @@ export default function ClientesPage() {
       </div>
 
       {selected && (
-        <ClientDrawer client={selected} onClose={() => setSelected(null)} />
+        <ClientDrawer
+          client={selected}
+          onClose={() => setSelected(null)}
+          onPhotoUpdate={handlePhotoUpdate}
+        />
       )}
 
       {showNewModal && (

@@ -34,6 +34,7 @@ export interface Client {
   email: string | null;
   notes: string | null;
   data_nascimento: string | null;
+  photo_url: string | null;
   total_appointments: number;
   total_spent: number;
   last_appointment: string | null;
