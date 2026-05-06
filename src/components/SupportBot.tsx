@@ -1,7 +1,11 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { MessageCircle, X, Send, Bot } from "lucide-react";
+import Image from "next/image";
+import { MessageCircle, X, Send } from "lucide-react";
+
+const DIANA_AVATAR =
+  "https://assets.cdn.filesafe.space/MgsViYLMmCdJksx9p3va/media/69e8ba57a1636a6c65273241.png";
 
 interface Message {
   role: "user" | "assistant";
@@ -11,7 +15,7 @@ interface Message {
 const WELCOME: Message = {
   role: "assistant",
   content:
-    "Olá! Sou a tua assistente VagasIA. Como posso ajudar-te hoje? Podes perguntar-me sobre marcações, clientes, fidelização, financeiro ou qualquer outra funcionalidade.",
+    "Olá! Sou a Diana, a tua assistente VagasIA. Como posso ajudar-te hoje? Podes perguntar-me sobre marcações, clientes, fidelização, financeiro ou qualquer outra funcionalidade.",
 };
 
 const QUICK_QUESTIONS = [
@@ -65,7 +69,8 @@ export default function SupportBot() {
           const updated = [...prev];
           updated[updated.length - 1] = {
             role: "assistant",
-            content: "Desculpa, ocorreu um erro. Tenta novamente ou envia email para suporte@vagasia.pt.",
+            content:
+              "Desculpa, ocorreu um erro. Tenta novamente ou envia email para suporte@vagasia.pt.",
           };
           return updated;
         });
@@ -103,7 +108,8 @@ export default function SupportBot() {
         const updated = [...prev];
         updated[updated.length - 1] = {
           role: "assistant",
-          content: "Desculpa, ocorreu um erro de ligação. Verifica a tua internet e tenta novamente.",
+          content:
+            "Desculpa, ocorreu um erro de ligação. Verifica a tua internet e tenta novamente.",
         };
         return updated;
       });
@@ -124,13 +130,17 @@ export default function SupportBot() {
           style={{ width: 360, maxHeight: 520 }}
         >
           {/* Header */}
-          <div className="flex items-center gap-3 rounded-t-2xl bg-[#00B4D8] px-4 py-3.5">
-            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white/20">
-              <Bot size={16} className="text-white" />
-            </div>
+          <div className="flex items-center gap-3 rounded-t-2xl bg-[#00B4D8] px-4 py-3">
+            <Image
+              src={DIANA_AVATAR}
+              alt="Diana"
+              width={36}
+              height={36}
+              className="h-9 w-9 shrink-0 rounded-full object-cover ring-2 ring-white/30"
+            />
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-semibold text-white leading-tight">Assistente VagasIA</p>
-              <p className="text-[11px] text-white/70 leading-tight">Sempre disponível para ajudar</p>
+              <p className="text-sm font-semibold text-white leading-tight">Diana</p>
+              <p className="text-[11px] text-white/70 leading-tight">Assistente VagasIA</p>
             </div>
             <button
               onClick={() => setOpen(false)}
@@ -148,9 +158,13 @@ export default function SupportBot() {
                 className={`flex gap-2 ${m.role === "user" ? "justify-end" : "justify-start"}`}
               >
                 {m.role === "assistant" && (
-                  <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[#00B4D8]/20 mt-0.5">
-                    <Bot size={12} className="text-[#00B4D8]" />
-                  </div>
+                  <Image
+                    src={DIANA_AVATAR}
+                    alt="Diana"
+                    width={24}
+                    height={24}
+                    className="h-6 w-6 shrink-0 rounded-full object-cover mt-0.5"
+                  />
                 )}
                 <div
                   className={`max-w-[80%] rounded-2xl px-3.5 py-2.5 text-sm leading-relaxed ${
@@ -217,13 +231,23 @@ export default function SupportBot() {
         </div>
       )}
 
-      {/* Floating button */}
+      {/* Floating button — Diana's photo when closed, X when open */}
       <button
         onClick={() => setOpen((v) => !v)}
-        className="fixed bottom-4 right-4 z-50 flex h-14 w-14 items-center justify-center rounded-full bg-[#00B4D8] text-white shadow-lg hover:bg-[#0090b0] transition-colors"
-        aria-label="Abrir assistente VagasIA"
+        className="fixed bottom-4 right-4 z-50 flex h-14 w-14 items-center justify-center rounded-full bg-[#00B4D8] shadow-lg hover:bg-[#0090b0] transition-colors overflow-hidden"
+        aria-label="Abrir assistente Diana"
       >
-        {open ? <X size={22} /> : <MessageCircle size={22} />}
+        {open ? (
+          <X size={22} className="text-white" />
+        ) : (
+          <Image
+            src={DIANA_AVATAR}
+            alt="Diana"
+            width={56}
+            height={56}
+            className="h-14 w-14 object-cover"
+          />
+        )}
       </button>
     </>
   );
