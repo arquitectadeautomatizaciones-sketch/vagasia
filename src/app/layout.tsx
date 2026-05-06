@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import SupportBot from "@/components/SupportBot";
 
 export const metadata: Metadata = {
   title: "VagasIA — Transforme vagas vazias em faturação.",
@@ -14,7 +15,10 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="pt" className="h-full antialiased">
-      <body className="min-h-full">{children}</body>
+      <body className="min-h-full">
+        {children}
+        <SupportBot />
+      </body>
     </html>
   );
 }
