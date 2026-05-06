@@ -70,7 +70,7 @@ export default function SupportBot() {
           updated[updated.length - 1] = {
             role: "assistant",
             content:
-              "Desculpa, ocorreu um erro. Tenta novamente ou envia email para suporte@vagasia.pt.",
+              "Desculpa, ocorreu um erro. Tenta novamente ou envia email para geral@dianagarcia.pt.",
           };
           return updated;
         });
