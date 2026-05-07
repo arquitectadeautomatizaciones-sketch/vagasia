@@ -8,13 +8,18 @@ import { createSupabaseBrowserClient } from "@/utils/supabase/client";
 export const dynamic = "force-dynamic";
 
 const FEATURES = [
-  "Gestão de marcações ilimitadas",
-  "Lista de espera automática",
-  "Lembretes via WhatsApp",
-  "Cartões de fidelização",
-  "Inquéritos de satisfação",
-  "Gestão financeira",
-  "Assistente IA de suporte",
+  "Recuperação automática de vagas canceladas",
+  "Lembretes automáticos via WhatsApp",
+  "Base de dados de clientes na nuvem",
+  "Módulo financeiro (entradas, despesas, utilidade)",
+  "Inquéritos de satisfação com 3 KPIs",
+  "Mensagens automáticas de aniversário",
+  "Cartão de fidelização digital",
+  "Assistente IA de suporte 24/7",
+  "Até 2 colaboradoras incluídas",
+  "Instalação e configuração incluídas",
+  "Suporte presencial em Viana do Castelo",
+  "7 dias grátis para experimentar",
 ];
 
 function SubscribeContent() {
@@ -27,8 +32,28 @@ function SubscribeContent() {
     setLoading(true);
     setError("");
     try {
-      const res = await fetch("/api/stripe/checkout", { method: "POST" });
+      const supabase = createSupabaseBrowserClient();
+
+      // Garantir sessão válida antes de chamar o endpoint
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+      if (sessionError || !session) {
+        window.location.href = "/login?next=/subscribe";
+        return;
+      }
+
+      // Refrescar token para garantir que o servidor recebe cookies atualizados
+      await supabase.auth.refreshSession();
+
+      const res = await fetch("/api/stripe/checkout", {
+        method: "POST",
+        credentials: "include",
+      });
       const data = await res.json();
+
+      if (res.status === 401) {
+        window.location.href = "/login?next=/subscribe";
+        return;
+      }
       if (!res.ok || !data.url) {
         setError(data.error ?? "Erro ao criar sessão de pagamento.");
         return;
