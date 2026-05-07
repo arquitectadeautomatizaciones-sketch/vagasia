@@ -81,16 +81,22 @@ function SubscribeContent() {
       )}
 
       <div className="mb-2 text-center">
-        <span className="inline-block rounded-full border border-[#00B4D8]/30 bg-[#00B4D8]/10 px-3 py-1 text-xs font-medium text-[#2DD4BF]">
-          Subscrição mensal
+        <span className="inline-block rounded-full border border-[#2DD4BF]/40 bg-[#2DD4BF]/10 px-3 py-1 text-xs font-medium text-[#2DD4BF]">
+          7 dias grátis · depois €37/mês
         </span>
       </div>
 
-      <div className="mb-6 text-center">
+      <div className="mb-1 text-center">
         <p className="text-4xl font-bold text-white">
-          €37<span className="text-lg font-normal text-slate-400">/mês</span>
+          €0<span className="text-lg font-normal text-slate-400"> hoje</span>
         </p>
-        <p className="mt-1 text-sm text-slate-400">Cancela quando quiseres, sem compromisso.</p>
+        <p className="mt-1 text-sm text-slate-400">
+          7 dias grátis para experimentar, depois €37/mês. Cancela quando quiseres.
+        </p>
+      </div>
+
+      <div className="mb-6 mt-3 rounded-xl border border-[#2DD4BF]/20 bg-[#2DD4BF]/5 px-4 py-2.5 text-center text-xs text-[#2DD4BF]">
+        Não é cobrado nenhum valor durante o trial. Avisamos 3 dias antes do fim.
       </div>
 
       <ul className="mb-6 space-y-2.5">
@@ -115,7 +121,7 @@ function SubscribeContent() {
         disabled={loading}
         className="w-full rounded-xl bg-[#00B4D8] py-3.5 font-semibold text-white transition-colors hover:bg-[#0090b0] disabled:opacity-50"
       >
-        {loading ? "A redirecionar…" : "Subscrever VagasIA por €37/mês"}
+        {loading ? "A redirecionar…" : "Começar 7 dias grátis"}
       </button>
 
       <button

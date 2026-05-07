@@ -19,6 +19,7 @@ export async function POST() {
     mode: "subscription",
     payment_method_types: ["card"],
     line_items: [{ price: process.env.STRIPE_PRICE_ID!, quantity: 1 }],
+    subscription_data: { trial_period_days: 7 },
     client_reference_id: businessId,
     customer_email: user.email,
     success_url: `${baseUrl}/dashboard?subscribed=1`,
