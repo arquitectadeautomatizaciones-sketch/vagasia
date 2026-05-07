@@ -2,6 +2,15 @@ import { NextResponse, type NextRequest } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 
 const PUBLIC_PREFIXES = ["/login", "/register", "/marcar", "/demo", "/survey", "/api/survey", "/api/aniversarios-hoje", "/api/satisfacao", "/api/whatsapp", "/api/auth", "/auth", "/suspended", "/subscribe", "/api/stripe/webhook"];
+
+const TRIAL_DAYS = 7;
+
+function trialDaysRemaining(trialStartedAt: string): number {
+  const elapsed = Date.now() - new Date(trialStartedAt).getTime();
+  const remaining = TRIAL_DAYS - elapsed / (1000 * 60 * 60 * 24);
+  return Math.ceil(remaining);
+}
+
 export async function middleware(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request });
 
@@ -42,7 +51,13 @@ export async function middleware(request: NextRequest) {
   }
 
   if (user) {
-    const isActive = user.app_metadata?.is_active !== false;
+    const isActive = user.app_metadata?.is_active === true;
+    const trialStartedAt = user.app_metadata?.trial_started_at as string | undefined;
+    const inTrial = !!trialStartedAt && trialDaysRemaining(trialStartedAt) > 0;
+
+    // Tem acesso se tem subscrição Stripe ativa OU está em período de trial
+    const hasAccess = isActive || inTrial;
+
     const onboardingDone = !!user.app_metadata?.onboarding_completed;
     const hasBusinessId = !!user.app_metadata?.business_id;
     const isReady = onboardingDone && hasBusinessId;
@@ -52,7 +67,7 @@ export async function middleware(request: NextRequest) {
     // Auth/landing pages → redirecionar para o destino certo
     if (pathname === "/login" || pathname === "/register" || pathname === "/") {
       if (!isReady) return NextResponse.redirect(new URL("/onboarding", request.url));
-      if (!isActive) return NextResponse.redirect(new URL("/subscribe", request.url));
+      if (!hasAccess) return NextResponse.redirect(new URL("/subscribe", request.url));
       return NextResponse.redirect(new URL("/dashboard", request.url));
     }
 
@@ -61,18 +76,18 @@ export async function middleware(request: NextRequest) {
       return NextResponse.redirect(new URL("/onboarding", request.url));
     }
 
-    // Onboarding feito mas sem subscrição → /subscribe (exceto API, admin e /subscribe em si)
-    if (isReady && !isActive && !isSubscribePage && !pathname.startsWith("/suspended") && !pathname.startsWith("/api/") && !pathname.startsWith("/admin")) {
+    // Onboarding feito mas sem acesso → /subscribe (exceto API, admin e /subscribe em si)
+    if (isReady && !hasAccess && !isSubscribePage && !pathname.startsWith("/suspended") && !pathname.startsWith("/api/") && !pathname.startsWith("/admin")) {
       return NextResponse.redirect(new URL("/subscribe", request.url));
     }
 
-    // Onboarding completo e ativo → sair do /onboarding
-    if (isReady && isActive && isOnboarding) {
+    // Onboarding completo com acesso → sair do /onboarding
+    if (isReady && hasAccess && isOnboarding) {
       return NextResponse.redirect(new URL("/dashboard", request.url));
     }
 
-    // Onboarding completo (mesmo sem subscrição) → sair do /onboarding para /subscribe
-    if (isReady && !isActive && isOnboarding) {
+    // Onboarding completo sem acesso → sair do /onboarding para /subscribe
+    if (isReady && !hasAccess && isOnboarding) {
       return NextResponse.redirect(new URL("/subscribe", request.url));
     }
   }

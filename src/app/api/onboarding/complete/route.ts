@@ -20,11 +20,14 @@ export async function POST() {
   const businessId = user.app_metadata?.business_id as string | undefined;
   if (!businessId) return unauthorizedJson();
 
-  // Read latest business name to sync into app_metadata
+  const trialStartedAt = new Date().toISOString();
+
+  // Atualizar nome do negócio e registar início do trial na BD
   const { data: business } = await adminDb()
     .from("businesses")
-    .select("name")
+    .update({ trial_started_at: trialStartedAt })
     .eq("id", businessId)
+    .select("name")
     .single();
 
   const admin = createSupabaseAdminClient();
@@ -33,6 +36,7 @@ export async function POST() {
       ...user.app_metadata,
       business_name: business?.name ?? user.app_metadata?.business_name,
       onboarding_completed: true,
+      trial_started_at: trialStartedAt,
     },
   });
 

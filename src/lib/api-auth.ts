@@ -22,6 +22,16 @@ export async function getAuthBusinessId(): Promise<string | null> {
 }
 
 /**
+ * Devolve o utilizador autenticado completo (inclui app_metadata).
+ * Devolve null se não autenticado.
+ */
+export async function getAuthUser() {
+  const supabase = await createSupabaseServerClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  return user;
+}
+
+/**
  * Devolve true se o utilizador autenticado é administrador.
  * Usa o service role para ler app_metadata fresco da BD, ignorando o JWT.
  */

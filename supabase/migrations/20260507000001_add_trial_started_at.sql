@@ -1,0 +1,2 @@
+ALTER TABLE businesses
+  ADD COLUMN IF NOT EXISTS trial_started_at TIMESTAMPTZ;

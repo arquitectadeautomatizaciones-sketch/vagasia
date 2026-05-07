@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@supabase/supabase-js";
 import AppLayout from "@/components/AppLayout";
-import { getAuthBusinessId } from "@/lib/api-auth";
+import { getAuthBusinessId, getAuthUser } from "@/lib/api-auth";
 import {
   CalendarCheck,
   Banknote,
@@ -9,7 +9,16 @@ import {
   CheckCircle,
   Clock,
   XCircle,
+  Zap,
 } from "lucide-react";
+
+const TRIAL_DAYS = 7;
+
+function trialDaysRemaining(trialStartedAt: string): number {
+  const elapsed = Date.now() - new Date(trialStartedAt).getTime();
+  const remaining = TRIAL_DAYS - elapsed / (1000 * 60 * 60 * 24);
+  return Math.ceil(remaining);
+}
 
 function statusColors(status: string) {
   if (status === "confirmada") return "bg-[#2DD4BF]/15 text-[#2DD4BF]";
@@ -42,8 +51,13 @@ function adminClient() {
 }
 
 export default async function DashboardPage() {
-  const businessId = await getAuthBusinessId();
+  const [businessId, user] = await Promise.all([getAuthBusinessId(), getAuthUser()]);
   if (!businessId) redirect("/login");
+
+  const isActive = user?.app_metadata?.is_active === true;
+  const trialStartedAt = user?.app_metadata?.trial_started_at as string | undefined;
+  const daysRemaining = trialStartedAt ? trialDaysRemaining(trialStartedAt) : 0;
+  const showTrialBanner = !isActive && trialStartedAt && daysRemaining > 0;
 
   const todayStr = new Date().toISOString().split("T")[0];
 
@@ -108,6 +122,31 @@ export default async function DashboardPage() {
           <h1 className="text-xl font-semibold text-white">Dashboard</h1>
           <p className="text-sm text-slate-400 mt-0.5 capitalize">{dateDisplay}</p>
         </div>
+
+        {/* Banner de trial */}
+        {showTrialBanner && (
+          <div className="flex items-center gap-3 rounded-xl border border-[#00B4D8]/20 bg-[#00B4D8]/5 px-4 py-3">
+            <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg bg-[#00B4D8]/15">
+              <Zap size={16} className="text-[#00B4D8]" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-medium text-white">
+                {daysRemaining === 1
+                  ? "Último dia de teste gratuito"
+                  : `Tens ${daysRemaining} dias de teste gratuito restantes`}
+              </p>
+              <p className="text-xs text-slate-400">
+                Após o período de teste, a subscrição é de €37/mês.
+              </p>
+            </div>
+            <a
+              href="/subscribe"
+              className="flex-shrink-0 rounded-lg bg-[#00B4D8] px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-[#0090b0]"
+            >
+              Subscrever
+            </a>
+          </div>
+        )}
 
         {/* Metric cards */}
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
