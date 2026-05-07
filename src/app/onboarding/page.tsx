@@ -142,7 +142,7 @@ export default function OnboardingPage() {
       .auth.getUser()
       .then(({ data: { user } }) => {
         if (user?.app_metadata?.onboarding_completed) {
-          router.replace(user.app_metadata?.is_active !== false ? "/dashboard" : "/subscribe");
+          router.replace("/dashboard");
           return;
         }
         setBusinessName(user?.app_metadata?.business_name ?? "");
@@ -244,13 +244,13 @@ export default function OnboardingPage() {
           </div>
           <h1 className="mb-2 text-2xl font-bold text-white">Tudo configurado!</h1>
           <p className="mb-8 text-slate-400">
-            Um último passo — ativa a tua subscrição para começares a usar o VagasIA.
+            O teu período de teste gratuito de 7 dias começou. Explora o VagasIA sem compromisso.
           </p>
           <button
-            onClick={() => router.push("/subscribe")}
+            onClick={() => router.push("/dashboard")}
             className="w-full rounded-xl bg-[#00B4D8] py-3 font-semibold text-white transition-colors hover:bg-[#0090b0]"
           >
-            Ativar subscrição
+            Ir para o Dashboard
           </button>
         </div>
       </div>
