@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 
-const PUBLIC_PREFIXES = ["/login", "/register", "/marcar", "/demo", "/survey", "/api/survey", "/api/aniversarios-hoje", "/api/satisfacao", "/api/whatsapp", "/api/auth", "/auth", "/suspended"];
+const PUBLIC_PREFIXES = ["/login", "/register", "/marcar", "/demo", "/survey", "/api/survey", "/api/aniversarios-hoje", "/api/satisfacao", "/api/whatsapp", "/api/auth", "/auth", "/suspended", "/subscribe", "/api/stripe/webhook"];
 export async function middleware(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request });
 
@@ -42,33 +42,38 @@ export async function middleware(request: NextRequest) {
   }
 
   if (user) {
-    // is_active defaults to true when not set (existing users before the column was added)
     const isActive = user.app_metadata?.is_active !== false;
-
-    // Suspended accounts: only /suspended and public routes allowed
-    if (!isActive && !pathname.startsWith("/suspended") && !pathname.startsWith("/api/") && !pathname.startsWith("/admin")) {
-      return NextResponse.redirect(new URL("/suspended", request.url));
-    }
-
     const onboardingDone = !!user.app_metadata?.onboarding_completed;
     const hasBusinessId = !!user.app_metadata?.business_id;
     const isReady = onboardingDone && hasBusinessId;
     const isOnboarding = pathname.startsWith("/onboarding");
+    const isSubscribePage = pathname.startsWith("/subscribe");
 
-    // Auth/landing pages → home screen
+    // Auth/landing pages → redirecionar para o destino certo
     if (pathname === "/login" || pathname === "/register" || pathname === "/") {
-      return NextResponse.redirect(new URL(isReady ? "/dashboard" : "/onboarding", request.url));
+      if (!isReady) return NextResponse.redirect(new URL("/onboarding", request.url));
+      if (!isActive) return NextResponse.redirect(new URL("/subscribe", request.url));
+      return NextResponse.redirect(new URL("/dashboard", request.url));
     }
 
-    // Users without a business or incomplete onboarding stay on /onboarding
-    // (API routes and /admin exempt — they gate themselves)
+    // Onboarding incompleto → forçar /onboarding (exceto API e admin)
     if (!isReady && !isOnboarding && !pathname.startsWith("/api/") && !pathname.startsWith("/admin")) {
       return NextResponse.redirect(new URL("/onboarding", request.url));
     }
 
-    // Fully onboarded users redirected away from /onboarding
-    if (isReady && isOnboarding) {
+    // Onboarding feito mas sem subscrição → /subscribe (exceto API, admin e /subscribe em si)
+    if (isReady && !isActive && !isSubscribePage && !pathname.startsWith("/suspended") && !pathname.startsWith("/api/") && !pathname.startsWith("/admin")) {
+      return NextResponse.redirect(new URL("/subscribe", request.url));
+    }
+
+    // Onboarding completo e ativo → sair do /onboarding
+    if (isReady && isActive && isOnboarding) {
       return NextResponse.redirect(new URL("/dashboard", request.url));
+    }
+
+    // Onboarding completo (mesmo sem subscrição) → sair do /onboarding para /subscribe
+    if (isReady && !isActive && isOnboarding) {
+      return NextResponse.redirect(new URL("/subscribe", request.url));
     }
   }
 

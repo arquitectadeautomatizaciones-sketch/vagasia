@@ -142,7 +142,7 @@ export default function OnboardingPage() {
       .auth.getUser()
       .then(({ data: { user } }) => {
         if (user?.app_metadata?.onboarding_completed) {
-          router.replace("/dashboard");
+          router.replace(user.app_metadata?.is_active !== false ? "/dashboard" : "/subscribe");
           return;
         }
         setBusinessName(user?.app_metadata?.business_name ?? "");
@@ -243,17 +243,14 @@ export default function OnboardingPage() {
             <Check size={32} className="text-[#2DD4BF]" />
           </div>
           <h1 className="mb-2 text-2xl font-bold text-white">Tudo configurado!</h1>
-          <p className="mb-2 text-slate-400">
-            Em 24 horas o teu número estará ativo.
-          </p>
           <p className="mb-8 text-slate-400">
-            Vais começar a recuperar vagas automaticamente.
+            Um último passo — ativa a tua subscrição para começares a usar o VagasIA.
           </p>
           <button
-            onClick={() => router.push("/dashboard")}
+            onClick={() => router.push("/subscribe")}
             className="w-full rounded-xl bg-[#00B4D8] py-3 font-semibold text-white transition-colors hover:bg-[#0090b0]"
           >
-            Ir para o Dashboard
+            Ativar subscrição
           </button>
         </div>
       </div>

@@ -79,10 +79,12 @@ export async function POST(req: NextRequest) {
   }
 
   // 3. Guardar business_id no app_metadata — sem queries extras nos pedidos futuros
+  // is_active=false até o utilizador subscrever via Stripe
   await admin.auth.admin.updateUserById(userId, {
     app_metadata: {
       business_id: business.id,
       business_name: business.name,
+      is_active: false,
     },
   });
 
