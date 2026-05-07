@@ -2,10 +2,14 @@
 
 import { useState, useRef, useEffect } from "react";
 import Image from "next/image";
+import { usePathname } from "next/navigation";
 import { MessageCircle, X, Send } from "lucide-react";
+import { createSupabaseBrowserClient } from "@/utils/supabase/client";
 
 const DIANA_AVATAR =
   "https://assets.cdn.filesafe.space/MgsViYLMmCdJksx9p3va/media/69e8ba57a1636a6c65273241.png";
+
+const TRIAL_DAYS = 7;
 
 interface Message {
   role: "user" | "assistant";
@@ -18,6 +22,18 @@ const WELCOME: Message = {
     "Olá! Sou a Diana, a tua assistente VagasIA. Como posso ajudar-te hoje? Podes perguntar-me sobre marcações, clientes, fidelização, financeiro ou qualquer outra funcionalidade.",
 };
 
+const TRIAL_WELCOME: Message = {
+  role: "assistant",
+  content:
+    "Olá! 👋 Sou a Diana, a tua assistente pessoal. Vi que acabaste de começar o teu período de teste — estou aqui para te ajudar a tirar o máximo proveito do VagasIA. Posso mostrar-te por onde começar? 😊",
+};
+
+const DEMO_WELCOME: Message = {
+  role: "assistant",
+  content:
+    "Olá! 👋 Estás a explorar o VagasIA. Tens alguma dúvida sobre o que estás a ver? Estou aqui para explicar tudo! 😊",
+};
+
 const QUICK_QUESTIONS = [
   "Como adiciono um cliente?",
   "Como publico uma vaga?",
@@ -26,20 +42,79 @@ const QUICK_QUESTIONS = [
 ];
 
 export default function SupportBot() {
+  const pathname = usePathname();
   const [open, setOpen] = useState(false);
   const [messages, setMessages] = useState<Message[]>([WELCOME]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const autoOpenTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // Auto-scroll on new messages
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
+  // Focus input when chat opens
   useEffect(() => {
     if (open) setTimeout(() => inputRef.current?.focus(), 100);
   }, [open]);
+
+  // Auto-open logic based on route
+  useEffect(() => {
+    // Cancel any pending timer from previous route
+    if (autoOpenTimerRef.current) {
+      clearTimeout(autoOpenTimerRef.current);
+      autoOpenTimerRef.current = null;
+    }
+
+    let cancelled = false;
+
+    if (pathname.startsWith("/demo")) {
+      // Demo pages: sempre abrir após 5 segundos com mensagem própria
+      setOpen(false);
+      setMessages([DEMO_WELCOME]);
+      autoOpenTimerRef.current = setTimeout(() => {
+        if (!cancelled) setOpen(true);
+      }, 5000);
+    } else if (pathname === "/dashboard") {
+      // Dashboard: abrir apenas na primeira visita durante trial
+      const alreadyGreeted = typeof window !== "undefined"
+        ? localStorage.getItem("bot_greeted") === "true"
+        : true;
+
+      if (!alreadyGreeted) {
+        createSupabaseBrowserClient()
+          .auth.getUser()
+          .then(({ data: { user } }) => {
+            if (cancelled) return;
+            const trialStartedAt = user?.app_metadata?.trial_started_at as string | undefined;
+            const inTrial =
+              !!trialStartedAt &&
+              Date.now() - new Date(trialStartedAt).getTime() <
+                TRIAL_DAYS * 24 * 60 * 60 * 1000;
+
+            if (inTrial) {
+              setMessages([TRIAL_WELCOME]);
+              autoOpenTimerRef.current = setTimeout(() => {
+                if (cancelled) return;
+                setOpen(true);
+                localStorage.setItem("bot_greeted", "true");
+              }, 3000);
+            }
+          });
+      }
+    }
+
+    return () => {
+      cancelled = true;
+      if (autoOpenTimerRef.current) {
+        clearTimeout(autoOpenTimerRef.current);
+        autoOpenTimerRef.current = null;
+      }
+    };
+  }, [pathname]);
 
   async function send(content: string) {
     if (!content.trim() || loading) return;
@@ -123,115 +198,119 @@ export default function SupportBot() {
 
   return (
     <>
-      {/* Chat panel */}
-      {open && (
-        <div
-          className="fixed bottom-20 right-4 z-50 flex flex-col rounded-2xl border border-white/10 bg-[#0F172A] shadow-2xl"
-          style={{ width: 360, maxHeight: 520 }}
-        >
-          {/* Header */}
-          <div className="flex items-center gap-3 rounded-t-2xl bg-[#00B4D8] px-4 py-3">
-            <Image
-              src={DIANA_AVATAR}
-              alt="Diana"
-              width={36}
-              height={36}
-              className="h-9 w-9 shrink-0 rounded-full object-cover ring-2 ring-white/30"
-            />
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-semibold text-white leading-tight">Diana</p>
-              <p className="text-[11px] text-white/70 leading-tight">Assistente VagasIA</p>
-            </div>
-            <button
-              onClick={() => setOpen(false)}
-              className="rounded-lg p-1 text-white/70 hover:bg-white/10 hover:text-white transition-colors"
-            >
-              <X size={16} />
-            </button>
+      {/* Chat panel — sempre no DOM, animado com opacity + transform */}
+      <div
+        aria-hidden={!open}
+        className={`fixed bottom-20 right-4 z-50 flex flex-col rounded-2xl border border-white/10 bg-[#0F172A] shadow-2xl
+          transition duration-300 ease-out origin-bottom-right
+          ${open
+            ? "opacity-100 scale-100 pointer-events-auto"
+            : "opacity-0 scale-95 pointer-events-none"
+          }`}
+        style={{ width: 360, maxHeight: 520 }}
+      >
+        {/* Header */}
+        <div className="flex items-center gap-3 rounded-t-2xl bg-[#00B4D8] px-4 py-3">
+          <Image
+            src={DIANA_AVATAR}
+            alt="Diana"
+            width={36}
+            height={36}
+            className="h-9 w-9 shrink-0 rounded-full object-cover ring-2 ring-white/30"
+          />
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-semibold text-white leading-tight">Diana</p>
+            <p className="text-[11px] text-white/70 leading-tight">Assistente VagasIA</p>
           </div>
-
-          {/* Messages */}
-          <div className="flex-1 overflow-y-auto p-4 space-y-3" style={{ minHeight: 0 }}>
-            {messages.map((m, i) => (
-              <div
-                key={i}
-                className={`flex gap-2 ${m.role === "user" ? "justify-end" : "justify-start"}`}
-              >
-                {m.role === "assistant" && (
-                  <Image
-                    src={DIANA_AVATAR}
-                    alt="Diana"
-                    width={24}
-                    height={24}
-                    className="h-6 w-6 shrink-0 rounded-full object-cover mt-0.5"
-                  />
-                )}
-                <div
-                  className={`max-w-[80%] rounded-2xl px-3.5 py-2.5 text-sm leading-relaxed ${
-                    m.role === "user"
-                      ? "bg-[#00B4D8] text-white rounded-tr-sm"
-                      : "bg-[#1E293B] text-slate-200 rounded-tl-sm"
-                  }`}
-                >
-                  {m.content || (
-                    <span className="flex items-center gap-1 text-slate-500">
-                      <span className="inline-block h-1.5 w-1.5 animate-bounce rounded-full bg-slate-500 [animation-delay:0ms]" />
-                      <span className="inline-block h-1.5 w-1.5 animate-bounce rounded-full bg-slate-500 [animation-delay:150ms]" />
-                      <span className="inline-block h-1.5 w-1.5 animate-bounce rounded-full bg-slate-500 [animation-delay:300ms]" />
-                    </span>
-                  )}
-                </div>
-              </div>
-            ))}
-
-            {/* Quick question chips */}
-            {showQuickQuestions && (
-              <div className="flex flex-wrap gap-1.5 pt-1">
-                {QUICK_QUESTIONS.map((q) => (
-                  <button
-                    key={q}
-                    onClick={() => send(q)}
-                    className="rounded-full border border-[#00B4D8]/30 bg-[#00B4D8]/10 px-3 py-1.5 text-xs text-[#00B4D8] hover:bg-[#00B4D8]/20 transition-colors"
-                  >
-                    {q}
-                  </button>
-                ))}
-              </div>
-            )}
-
-            <div ref={messagesEndRef} />
-          </div>
-
-          {/* Input */}
-          <div className="border-t border-white/5 p-3">
-            <form
-              onSubmit={(e) => {
-                e.preventDefault();
-                send(input);
-              }}
-              className="flex items-center gap-2"
-            >
-              <input
-                ref={inputRef}
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
-                placeholder="Escreve a tua pergunta…"
-                disabled={loading}
-                className="flex-1 rounded-xl bg-[#1E293B] px-3.5 py-2.5 text-sm text-white placeholder-slate-600 outline-none focus:ring-1 focus:ring-[#00B4D8]/50 disabled:opacity-50 transition-all"
-              />
-              <button
-                type="submit"
-                disabled={!input.trim() || loading}
-                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#00B4D8] text-white hover:bg-[#0090b0] disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-              >
-                <Send size={15} />
-              </button>
-            </form>
-          </div>
+          <button
+            onClick={() => setOpen(false)}
+            className="rounded-lg p-1 text-white/70 hover:bg-white/10 hover:text-white transition-colors"
+          >
+            <X size={16} />
+          </button>
         </div>
-      )}
 
-      {/* Floating button — Diana's photo when closed, X when open */}
+        {/* Messages */}
+        <div className="flex-1 overflow-y-auto p-4 space-y-3" style={{ minHeight: 0 }}>
+          {messages.map((m, i) => (
+            <div
+              key={i}
+              className={`flex gap-2 ${m.role === "user" ? "justify-end" : "justify-start"}`}
+            >
+              {m.role === "assistant" && (
+                <Image
+                  src={DIANA_AVATAR}
+                  alt="Diana"
+                  width={24}
+                  height={24}
+                  className="h-6 w-6 shrink-0 rounded-full object-cover mt-0.5"
+                />
+              )}
+              <div
+                className={`max-w-[80%] rounded-2xl px-3.5 py-2.5 text-sm leading-relaxed ${
+                  m.role === "user"
+                    ? "bg-[#00B4D8] text-white rounded-tr-sm"
+                    : "bg-[#1E293B] text-slate-200 rounded-tl-sm"
+                }`}
+              >
+                {m.content || (
+                  <span className="flex items-center gap-1 text-slate-500">
+                    <span className="inline-block h-1.5 w-1.5 animate-bounce rounded-full bg-slate-500 [animation-delay:0ms]" />
+                    <span className="inline-block h-1.5 w-1.5 animate-bounce rounded-full bg-slate-500 [animation-delay:150ms]" />
+                    <span className="inline-block h-1.5 w-1.5 animate-bounce rounded-full bg-slate-500 [animation-delay:300ms]" />
+                  </span>
+                )}
+              </div>
+            </div>
+          ))}
+
+          {/* Quick question chips */}
+          {showQuickQuestions && (
+            <div className="flex flex-wrap gap-1.5 pt-1">
+              {QUICK_QUESTIONS.map((q) => (
+                <button
+                  key={q}
+                  onClick={() => send(q)}
+                  className="rounded-full border border-[#00B4D8]/30 bg-[#00B4D8]/10 px-3 py-1.5 text-xs text-[#00B4D8] hover:bg-[#00B4D8]/20 transition-colors"
+                >
+                  {q}
+                </button>
+              ))}
+            </div>
+          )}
+
+          <div ref={messagesEndRef} />
+        </div>
+
+        {/* Input */}
+        <div className="border-t border-white/5 p-3">
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              send(input);
+            }}
+            className="flex items-center gap-2"
+          >
+            <input
+              ref={inputRef}
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              placeholder="Escreve a tua pergunta…"
+              disabled={loading}
+              className="flex-1 rounded-xl bg-[#1E293B] px-3.5 py-2.5 text-sm text-white placeholder-slate-600 outline-none focus:ring-1 focus:ring-[#00B4D8]/50 disabled:opacity-50 transition-all"
+            />
+            <button
+              type="submit"
+              disabled={!input.trim() || loading}
+              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#00B4D8] text-white hover:bg-[#0090b0] disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+            >
+              <Send size={15} />
+            </button>
+          </form>
+        </div>
+      </div>
+
+      {/* Floating button */}
       <button
         onClick={() => setOpen((v) => !v)}
         className="fixed bottom-4 right-4 z-50 flex h-14 w-14 items-center justify-center rounded-full bg-[#00B4D8] shadow-lg hover:bg-[#0090b0] transition-colors overflow-hidden"
