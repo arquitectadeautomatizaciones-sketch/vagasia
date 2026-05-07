@@ -5,6 +5,8 @@ import { useSearchParams } from "next/navigation";
 import { Zap, Check, LogOut } from "lucide-react";
 import { createSupabaseBrowserClient } from "@/utils/supabase/client";
 
+export const dynamic = "force-dynamic";
+
 const FEATURES = [
   "Gestão de marcações ilimitadas",
   "Lista de espera automática",
