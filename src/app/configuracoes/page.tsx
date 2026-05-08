@@ -499,6 +499,8 @@ export default function ConfiguracoesPage() {
     { id: "s3", name: "Tratamento capilar", duration: 60, price: 35, active: true },
     { id: "s4", name: "Escova e brushing", duration: 40, price: 25, active: true },
   ]);
+  const [showAddService, setShowAddService] = useState(false);
+  const [newSvc, setNewSvc] = useState({ name: "", duration: 45, price: 0 });
 
   const handleSave = () => {
     setSaved(true);
@@ -515,6 +517,16 @@ export default function ConfiguracoesPage() {
 
   const toggleService = (id: string) =>
     setServices((prev) => prev.map((s) => s.id === id ? { ...s, active: !s.active } : s));
+
+  const addService = () => {
+    if (!newSvc.name.trim()) return;
+    setServices((prev) => [
+      ...prev,
+      { id: Date.now().toString(), name: newSvc.name.trim(), duration: newSvc.duration, price: newSvc.price, active: true },
+    ]);
+    setNewSvc({ name: "", duration: 45, price: 0 });
+    setShowAddService(false);
+  };
 
   return (
     <AppLayout>
@@ -610,10 +622,14 @@ export default function ConfiguracoesPage() {
               <div className="rounded-xl border border-white/5 bg-[#1E293B] p-6 space-y-4">
                 <div className="flex items-center justify-between">
                   <h2 className="text-sm font-semibold text-white">Serviços</h2>
-                  <button className="flex items-center gap-1.5 rounded-lg bg-[#00B4D8]/10 px-3 py-1.5 text-xs font-medium text-[#00B4D8] hover:bg-[#00B4D8]/20 transition-colors">
+                  <button
+                    onClick={() => setShowAddService(true)}
+                    className="flex items-center gap-1.5 rounded-lg bg-[#00B4D8]/10 px-3 py-1.5 text-xs font-medium text-[#00B4D8] hover:bg-[#00B4D8]/20 transition-colors"
+                  >
                     <Plus size={13} />Adicionar serviço
                   </button>
                 </div>
+
                 <div className="space-y-2">
                   {services.map((s) => (
                     <div key={s.id} className="flex items-center gap-3 rounded-lg bg-[#0F172A] px-4 py-3">
@@ -636,6 +652,63 @@ export default function ConfiguracoesPage() {
                     </div>
                   ))}
                 </div>
+
+                {/* Formulário de novo serviço */}
+                {showAddService && (
+                  <div className="rounded-lg border border-white/10 bg-[#0F172A] p-4 space-y-3">
+                    <p className="text-xs font-semibold text-white">Novo serviço</p>
+                    <div>
+                      <label className="block text-[10px] text-slate-500 mb-1">Nome do serviço</label>
+                      <input
+                        autoFocus
+                        value={newSvc.name}
+                        onChange={(e) => setNewSvc((s) => ({ ...s, name: e.target.value }))}
+                        onKeyDown={(e) => e.key === "Enter" && addService()}
+                        placeholder="Ex: Corte de cabelo"
+                        className="w-full rounded border border-white/10 bg-[#1E293B] px-3 py-2 text-sm text-white placeholder-slate-600 outline-none focus:border-[#00B4D8]/50"
+                      />
+                    </div>
+                    <div className="flex gap-3">
+                      <div className="flex-1">
+                        <label className="block text-[10px] text-slate-500 mb-1">Duração (min)</label>
+                        <input
+                          type="number"
+                          min={5}
+                          max={480}
+                          value={newSvc.duration}
+                          onChange={(e) => setNewSvc((s) => ({ ...s, duration: Number(e.target.value) }))}
+                          className="w-full rounded border border-white/10 bg-[#1E293B] px-3 py-2 text-sm text-white outline-none focus:border-[#00B4D8]/50 text-center"
+                        />
+                      </div>
+                      <div className="flex-1">
+                        <label className="block text-[10px] text-slate-500 mb-1">Preço (€)</label>
+                        <input
+                          type="number"
+                          min={0}
+                          step={0.5}
+                          value={newSvc.price}
+                          onChange={(e) => setNewSvc((s) => ({ ...s, price: Number(e.target.value) }))}
+                          className="w-full rounded border border-white/10 bg-[#1E293B] px-3 py-2 text-sm text-white outline-none focus:border-[#00B4D8]/50 text-center"
+                        />
+                      </div>
+                    </div>
+                    <div className="flex gap-2 pt-1">
+                      <button
+                        onClick={addService}
+                        disabled={!newSvc.name.trim()}
+                        className="flex-1 rounded-lg bg-[#00B4D8] py-2 text-xs font-semibold text-white hover:bg-[#0090b0] transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                      >
+                        Guardar serviço
+                      </button>
+                      <button
+                        onClick={() => { setShowAddService(false); setNewSvc({ name: "", duration: 45, price: 0 }); }}
+                        className="rounded-lg border border-white/10 px-3 py-2 text-xs text-slate-400 hover:text-white transition-colors"
+                      >
+                        Cancelar
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 
