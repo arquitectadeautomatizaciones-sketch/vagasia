@@ -20,8 +20,6 @@ import {
   CheckCircle,
   Plus,
   Trash2,
-  Eye,
-  EyeOff,
   ChevronLeft,
   ChevronRight,
   Ban,
@@ -444,7 +442,6 @@ function DisponibilidadeTab() {
 
 export default function ConfiguracoesPage() {
   const [tab, setTab] = useState<Tab>("perfil");
-  const [showToken, setShowToken] = useState(false);
   const [saved, setSaved] = useState(false);
   const [hours, setHours] = useState(defaultHours);
 
@@ -453,6 +450,7 @@ export default function ConfiguracoesPage() {
   const [logoError, setLogoError] = useState<string | null>(null);
   const [businessId, setBusinessId] = useState<string | null>(null);
   const [businessInitials, setBusinessInitials] = useState("N");
+  const [whatsappActive, setWhatsappActive] = useState(false);
   const logoInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -466,6 +464,7 @@ export default function ConfiguracoesPage() {
             data.name.split(" ").slice(0, 2).map((w: string) => w[0]).join("").toUpperCase()
           );
         }
+        setWhatsappActive(!!data.whatsapp_phone_number_id);
       })
       .catch(() => {});
   }, []);
@@ -831,56 +830,60 @@ export default function ConfiguracoesPage() {
             {/* WhatsApp */}
             {tab === "whatsapp" && (
               <div className="rounded-xl border border-white/5 bg-[#1E293B] p-6 space-y-5">
-                <div>
-                  <h2 className="text-sm font-semibold text-white">WhatsApp Business API</h2>
-                  <p className="text-xs text-slate-500 mt-1">
-                    Liga o teu número WhatsApp Business para enviar confirmações, lembretes e notificações de lista de espera.
+                <div className="flex items-start justify-between gap-4">
+                  <div>
+                    <h2 className="text-sm font-semibold text-white">WhatsApp Business</h2>
+                    <p className="text-xs text-slate-500 mt-1">
+                      Integração para envio automático de confirmações, lembretes e notificações de vagas.
+                    </p>
+                  </div>
+                  {whatsappActive ? (
+                    <span className="shrink-0 flex items-center gap-1.5 rounded-full bg-emerald-500/15 px-3 py-1.5 text-xs font-medium text-emerald-400">
+                      <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
+                      WhatsApp activo ✅
+                    </span>
+                  ) : (
+                    <span className="shrink-0 flex items-center gap-1.5 rounded-full bg-amber-500/15 px-3 py-1.5 text-xs font-medium text-amber-400">
+                      <span className="h-1.5 w-1.5 rounded-full bg-amber-400" />
+                      Não configurado — aguarda visita técnica
+                    </span>
+                  )}
+                </div>
+
+                <div className="rounded-lg border border-amber-500/20 bg-amber-500/5 p-4 space-y-3">
+                  <p className="text-xs font-semibold text-amber-400">⚠️ Número dedicado obrigatório</p>
+                  <p className="text-xs text-slate-400 leading-relaxed">
+                    A API do WhatsApp Business exige um número de telefone dedicado exclusivamente à plataforma — não pode ser o teu número pessoal nem um número já associado à aplicação WhatsApp.
+                  </p>
+                  <p className="text-xs font-medium text-slate-300">Tens duas opções:</p>
+                  <div className="space-y-2">
+                    <div className="rounded-md bg-[#0F172A] px-3 py-2.5">
+                      <p className="text-xs font-semibold text-white">Opção A — Usar um número existente</p>
+                      <p className="text-xs text-slate-500 mt-0.5">
+                        Portamos um número já teu (fixo ou móvel) para a API do WhatsApp Business. O número deixa de funcionar na app WhatsApp normal.
+                      </p>
+                    </div>
+                    <div className="rounded-md bg-[#0F172A] px-3 py-2.5">
+                      <p className="text-xs font-semibold text-white">Opção B — Obter um número novo</p>
+                      <p className="text-xs text-slate-500 mt-0.5">
+                        Adquires um número virtual dedicado (SIM ou VoIP) e configuramo-lo em conjunto durante a visita técnica.
+                      </p>
+                    </div>
+                  </div>
+                  <p className="text-xs text-slate-500 leading-relaxed">
+                    A configuração completa (Meta Business, verificação de negócio e templates aprovados) é feita pela nossa equipa durante uma visita guiada. Agenda abaixo para escolheres data e hora.
                   </p>
                 </div>
-                <div className="rounded-lg border border-[#00B4D8]/20 bg-[#00B4D8]/5 p-4 text-xs text-slate-400 space-y-1">
-                  <p className="font-semibold text-[#00B4D8] mb-2">Como configurar:</p>
-                  <ol className="list-decimal list-inside space-y-1">
-                    <li>Acede ao Meta for Developers e cria uma aplicação Business.</li>
-                    <li>Adiciona o produto "WhatsApp" à tua aplicação.</li>
-                    <li>Em WhatsApp &gt; Configurações da API, copia o Phone Number ID.</li>
-                    <li>Gera ou copia o Access Token permanente.</li>
-                    <li>Cola abaixo e guarda.</li>
-                  </ol>
-                </div>
-                <div className="space-y-4">
-                  <div>
-                    <label className="block text-xs font-medium text-slate-400 mb-1.5">Phone Number ID</label>
-                    <input placeholder="Ex: 123456789012345" className="w-full rounded-lg border border-white/10 bg-[#0F172A] px-3 py-2.5 text-sm text-white placeholder-slate-700 outline-none focus:border-[#00B4D8]/50 transition-colors font-mono" />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-medium text-slate-400 mb-1.5">Access Token</label>
-                    <div className="relative">
-                      <input type={showToken ? "text" : "password"} placeholder="EAAxxxxxxxxxxxxxx…" className="w-full rounded-lg border border-white/10 bg-[#0F172A] px-3 py-2.5 pr-10 text-sm text-white placeholder-slate-700 outline-none focus:border-[#00B4D8]/50 transition-colors font-mono" />
-                      <button onClick={() => setShowToken(!showToken)} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-white transition-colors">
-                        {showToken ? <EyeOff size={15} /> : <Eye size={15} />}
-                      </button>
-                    </div>
-                  </div>
-                </div>
-                <div className="pt-1 space-y-3">
-                  <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Automatizações ativas</h3>
-                  {[
-                    { label: "Confirmação de marcação", desc: "Envia mensagem ao cliente quando a marcação é confirmada" },
-                    { label: "Lembrete 24h antes", desc: "Lembra o cliente no dia anterior à marcação" },
-                    { label: "Notificação de vaga", desc: "Avisa clientes da lista de espera quando surge um cancelamento" },
-                  ].map((a) => (
-                    <div key={a.label} className="flex items-start justify-between gap-3 rounded-lg bg-[#0F172A] px-4 py-3">
-                      <div>
-                        <p className="text-sm font-medium text-white">{a.label}</p>
-                        <p className="text-xs text-slate-600 mt-0.5">{a.desc}</p>
-                      </div>
-                      <div className="flex h-5 w-9 shrink-0 items-center rounded-full bg-[#00B4D8] cursor-pointer">
-                        <span className="ml-auto mr-1 h-3.5 w-3.5 rounded-full bg-white" />
-                      </div>
-                    </div>
-                  ))}
-                </div>
-                <SaveButton onSave={handleSave} saved={saved} />
+
+                <a
+                  href="https://vagasia.vercel.app/marcar"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center justify-center gap-2 w-full rounded-lg bg-[#00B4D8] px-4 py-2.5 text-sm font-semibold text-white hover:bg-[#0090b0] transition-colors"
+                >
+                  <MessageSquare size={15} />
+                  Agendar visita de configuração
+                </a>
               </div>
             )}
           </div>
