@@ -30,11 +30,11 @@ export default function MarcarPage() {
           WhatsApp
         </p>
         <p className="mt-2 text-2xl font-bold tracking-wide text-[#00B4D8]">
-          +1 (555) 637-5786
+          +351 911 816 539
         </p>
 
         <a
-          href="https://wa.me/15556375786"
+          href="https://wa.me/351911816539"
           target="_blank"
           rel="noopener noreferrer"
           className="mt-6 flex w-full items-center justify-center gap-2 rounded-xl bg-[#00B4D8] px-5 py-3 text-sm font-semibold text-white transition-colors hover:bg-[#0090b0]"
@@ -45,7 +45,7 @@ export default function MarcarPage() {
       </div>
 
       <p className="mt-8 text-xs text-slate-600">
-        © {new Date().getFullYear()} VagasIA · Cabeleireira Lisboa
+        © {new Date().getFullYear()} VagasIA
       </p>
     </div>
   );
