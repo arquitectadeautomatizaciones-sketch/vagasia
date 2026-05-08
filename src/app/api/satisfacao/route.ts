@@ -74,5 +74,5 @@ export async function POST(request: Request) {
     .single();
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  return NextResponse.json({ token: data.token }, { status: 201 });
+  return NextResponse.json({ token: data.token });
 }
