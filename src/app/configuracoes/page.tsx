@@ -470,6 +470,18 @@ export default function ConfiguracoesPage() {
       .catch(() => {});
   }, []);
 
+  useEffect(() => {
+    fetch("/api/services?all=true")
+      .then((r) => r.json())
+      .then((data: { id: string; name: string; duration_minutes: number; price: number; active: boolean }[]) => {
+        if (Array.isArray(data)) {
+          setServices(data.map((s) => ({ id: s.id, name: s.name, duration: s.duration_minutes, price: s.price, active: s.active })));
+        }
+      })
+      .catch(() => {})
+      .finally(() => setServicesLoading(false));
+  }, []);
+
   async function handleLogoUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -493,18 +505,51 @@ export default function ConfiguracoesPage() {
     }
   }
 
-  const [services, setServices] = useState([
-    { id: "s1", name: "Corte de cabelo", duration: 45, price: 20, active: true },
-    { id: "s2", name: "Coloração", duration: 120, price: 60, active: true },
-    { id: "s3", name: "Tratamento capilar", duration: 60, price: 35, active: true },
-    { id: "s4", name: "Escova e brushing", duration: 40, price: 25, active: true },
-  ]);
+  type ServiceRow = { id: string; name: string; duration: number; price: number; active: boolean };
+  const [services, setServices] = useState<ServiceRow[]>([]);
+  const [servicesLoading, setServicesLoading] = useState(true);
+  const [servicesSaving, setServicesSaving] = useState(false);
+  const [servicesError, setServicesError] = useState<string | null>(null);
   const [showAddService, setShowAddService] = useState(false);
   const [newSvc, setNewSvc] = useState({ name: "", duration: 45, price: 0 });
 
   const handleSave = () => {
     setSaved(true);
     setTimeout(() => setSaved(false), 2500);
+  };
+
+  const handleSaveServices = async () => {
+    setServicesSaving(true);
+    setServicesError(null);
+    try {
+      const res = await fetch("/api/services", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          services: services.map((s) => ({
+            id: s.id,
+            name: s.name,
+            duration_minutes: s.duration,
+            price: s.price,
+            active: s.active,
+          })),
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Erro ao guardar serviços.");
+      // Actualizar IDs com os reais devolvidos pela API
+      if (Array.isArray(data.services)) {
+        setServices(data.services.map((s: { id: string; name: string; duration_minutes: number; price: number; active: boolean }) => ({
+          id: s.id, name: s.name, duration: s.duration_minutes, price: s.price, active: s.active,
+        })));
+      }
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2500);
+    } catch (err) {
+      setServicesError((err as Error).message);
+    } finally {
+      setServicesSaving(false);
+    }
   };
 
   const toggleDay = (i: number) =>
@@ -624,11 +669,29 @@ export default function ConfiguracoesPage() {
                   <h2 className="text-sm font-semibold text-white">Serviços</h2>
                   <button
                     onClick={() => setShowAddService(true)}
-                    className="flex items-center gap-1.5 rounded-lg bg-[#00B4D8]/10 px-3 py-1.5 text-xs font-medium text-[#00B4D8] hover:bg-[#00B4D8]/20 transition-colors"
+                    disabled={servicesLoading}
+                    className="flex items-center gap-1.5 rounded-lg bg-[#00B4D8]/10 px-3 py-1.5 text-xs font-medium text-[#00B4D8] hover:bg-[#00B4D8]/20 transition-colors disabled:opacity-50"
                   >
                     <Plus size={13} />Adicionar serviço
                   </button>
                 </div>
+
+                {servicesError && (
+                  <p className="rounded-lg border border-red-500/20 bg-red-500/10 px-3 py-2 text-xs text-red-400">
+                    {servicesError}
+                  </p>
+                )}
+
+                {servicesLoading ? (
+                  <div className="flex items-center justify-center gap-2 py-8 text-sm text-slate-500">
+                    <span className="h-4 w-4 animate-spin rounded-full border-2 border-[#00B4D8] border-t-transparent" />
+                    A carregar serviços…
+                  </div>
+                ) : services.length === 0 && !showAddService ? (
+                  <p className="py-6 text-center text-sm text-slate-500">
+                    Ainda não tens serviços. Adiciona o primeiro acima.
+                  </p>
+                ) : null}
 
                 <div className="space-y-2">
                   {services.map((s) => (
@@ -698,7 +761,7 @@ export default function ConfiguracoesPage() {
                         disabled={!newSvc.name.trim()}
                         className="flex-1 rounded-lg bg-[#00B4D8] py-2 text-xs font-semibold text-white hover:bg-[#0090b0] transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
                       >
-                        Guardar serviço
+                        Adicionar à lista
                       </button>
                       <button
                         onClick={() => { setShowAddService(false); setNewSvc({ name: "", duration: 45, price: 0 }); }}
@@ -709,6 +772,21 @@ export default function ConfiguracoesPage() {
                     </div>
                   </div>
                 )}
+
+                {/* Guardar no Supabase */}
+                <div className="flex justify-end pt-2">
+                  <button
+                    onClick={handleSaveServices}
+                    disabled={servicesSaving || servicesLoading}
+                    className={`flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-all disabled:opacity-50 ${
+                      saved ? "bg-[#2DD4BF]/20 text-[#2DD4BF]" : "bg-[#00B4D8] text-white hover:bg-[#0090b0]"
+                    }`}
+                  >
+                    {servicesSaving && <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white border-t-transparent" />}
+                    {saved && !servicesSaving && <CheckCircle size={15} />}
+                    {servicesSaving ? "A guardar…" : saved ? "Guardado!" : "Guardar alterações"}
+                  </button>
+                </div>
               </div>
             )}
 
