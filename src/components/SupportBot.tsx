@@ -6,7 +6,7 @@ import { usePathname } from "next/navigation";
 import { MessageCircle, X, Send } from "lucide-react";
 import { createSupabaseBrowserClient } from "@/utils/supabase/client";
 
-const DIANA_AVATAR =
+const SOFIA_AVATAR =
   "https://assets.cdn.filesafe.space/MgsViYLMmCdJksx9p3va/media/69e8ba57a1636a6c65273241.png";
 
 const TRIAL_DAYS = 7;
@@ -19,13 +19,13 @@ interface Message {
 const WELCOME: Message = {
   role: "assistant",
   content:
-    "Olá! Sou a Diana, a tua assistente VagasIA. Como posso ajudar-te hoje? Podes perguntar-me sobre marcações, clientes, fidelização, financeiro ou qualquer outra funcionalidade.",
+    "Olá! Sou a Sofía, a tua assistente VagasIA. Como posso ajudar-te hoje? Podes perguntar-me sobre marcações, clientes, fidelização, financeiro ou qualquer outra funcionalidade.",
 };
 
 const TRIAL_WELCOME: Message = {
   role: "assistant",
   content:
-    "Olá! 👋 Sou a Diana, a tua assistente pessoal. Vi que acabaste de começar o teu período de teste — estou aqui para te ajudar a tirar o máximo proveito do VagasIA. Posso mostrar-te por onde começar? 😊",
+    "Olá! 👋 Sou a Sofía, a tua assistente pessoal. Vi que acabaste de começar o teu período de teste — estou aqui para te ajudar a tirar o máximo proveito do VagasIA. Posso mostrar-te por onde começar? 😊",
 };
 
 const DEMO_WELCOME: Message = {
@@ -212,14 +212,14 @@ export default function SupportBot() {
         {/* Header */}
         <div className="flex items-center gap-3 rounded-t-2xl bg-[#00B4D8] px-4 py-3">
           <Image
-            src={DIANA_AVATAR}
-            alt="Diana"
+            src={SOFIA_AVATAR}
+            alt="Sofía"
             width={36}
             height={36}
             className="h-9 w-9 shrink-0 rounded-full object-cover ring-2 ring-white/30"
           />
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-semibold text-white leading-tight">Diana</p>
+            <p className="text-sm font-semibold text-white leading-tight">Sofía</p>
             <p className="text-[11px] text-white/70 leading-tight">Assistente VagasIA</p>
           </div>
           <button
@@ -239,8 +239,8 @@ export default function SupportBot() {
             >
               {m.role === "assistant" && (
                 <Image
-                  src={DIANA_AVATAR}
-                  alt="Diana"
+                  src={SOFIA_AVATAR}
+                  alt="Sofía"
                   width={24}
                   height={24}
                   className="h-6 w-6 shrink-0 rounded-full object-cover mt-0.5"
@@ -314,14 +314,14 @@ export default function SupportBot() {
       <button
         onClick={() => setOpen((v) => !v)}
         className="fixed bottom-4 right-4 z-50 flex h-14 w-14 items-center justify-center rounded-full bg-[#00B4D8] shadow-lg hover:bg-[#0090b0] transition-colors overflow-hidden"
-        aria-label="Abrir assistente Diana"
+        aria-label="Abrir assistente Sofía"
       >
         {open ? (
           <X size={22} className="text-white" />
         ) : (
           <Image
-            src={DIANA_AVATAR}
-            alt="Diana"
+            src={SOFIA_AVATAR}
+            alt="Sofía"
             width={56}
             height={56}
             className="h-14 w-14 object-cover"

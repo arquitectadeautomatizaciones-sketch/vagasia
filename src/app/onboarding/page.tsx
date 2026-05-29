@@ -2,8 +2,12 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
+import Image from "next/image";
 import { Zap, Plus, Trash2, ChevronLeft, Check, LogOut } from "lucide-react";
 import { createSupabaseBrowserClient } from "@/utils/supabase/client";
+
+const SOFIA_AVATAR =
+  "https://assets.cdn.filesafe.space/MgsViYLMmCdJksx9p3va/media/69e8ba57a1636a6c65273241.png";
 
 // ——— Types ———
 
@@ -264,9 +268,24 @@ export default function OnboardingPage() {
             <Check size={32} className="text-[#2DD4BF]" />
           </div>
           <h1 className="mb-2 text-2xl font-bold text-white">Tudo configurado!</h1>
-          <p className="mb-8 text-slate-400">
+          <p className="mb-6 text-slate-400">
             O teu período de teste gratuito de 7 dias começou. Explora o VagasIA sem compromisso.
           </p>
+
+          {/* Bloco Sofía */}
+          <div className="mb-8 flex items-center gap-4 rounded-2xl border border-[#2DD4BF]/20 bg-[#2DD4BF]/5 px-4 py-4 text-left">
+            <Image
+              src={SOFIA_AVATAR}
+              alt="Sofía"
+              width={56}
+              height={56}
+              className="h-14 w-14 shrink-0 rounded-full object-cover ring-2 ring-[#2DD4BF]/30"
+            />
+            <p className="text-sm leading-relaxed text-slate-300">
+              A tua assistente <span className="font-semibold text-white">Sofía</span> está disponível 24/7. Sempre que precisares de ajuda, clica na Sofía — nunca estás sozinho/a 💚
+            </p>
+          </div>
+
           <button
             onClick={() => router.push("/dashboard")}
             className="w-full rounded-xl bg-[#00B4D8] py-3 font-semibold text-white transition-colors hover:bg-[#0090b0]"
@@ -438,16 +457,16 @@ export default function OnboardingPage() {
             <h1 className="mb-1 text-xl font-bold text-white">Os teus serviços</h1>
             <p className="mb-6 text-sm text-slate-400">Adiciona os serviços que ofereces.</p>
 
-            <div className="mb-2 grid grid-cols-[1fr_80px_80px_32px] gap-2 text-xs font-medium text-slate-500">
+            <div className="mb-2 grid grid-cols-[1fr_58px_58px_28px] sm:grid-cols-[1fr_80px_80px_32px] gap-2 text-xs font-medium text-slate-500">
               <span>Serviço</span>
-              <span className="text-center">Duração (min)</span>
-              <span className="text-center">Preço (€)</span>
+              <span className="text-center">Dur.</span>
+              <span className="text-center">€</span>
               <span />
             </div>
 
             <div className="space-y-2">
               {serviceRows.map((svc, idx) => (
-                <div key={idx} className="grid grid-cols-[1fr_80px_80px_32px] gap-2">
+                <div key={idx} className="grid grid-cols-[1fr_58px_58px_28px] sm:grid-cols-[1fr_80px_80px_32px] gap-2">
                   <input
                     type="text"
                     placeholder="Ex: Corte de cabelo"
@@ -516,7 +535,7 @@ export default function OnboardingPage() {
           <div className="rounded-2xl border border-white/5 bg-[#1E293B] p-6">
             <h1 className="mb-1 text-xl font-bold text-white">Marcações da próxima semana</h1>
             <p className="mb-6 text-sm text-slate-400">
-              Carrega as marcações que já tens agendadas. Podes saltar este passo.
+              Para que o sistema comece a trabalhar por ti durante os 7 dias, adiciona as marcações que já tens. Se o teu negócio é novo e ainda não tens marcações, podes saltar.
             </p>
 
             {apptRows.length > 0 && (
@@ -595,7 +614,7 @@ export default function OnboardingPage() {
               <Plus size={15} /> Adicionar marcação
             </button>
 
-            <div className="mt-6 flex gap-3">
+            <div className="mt-6 flex items-center gap-3">
               <button
                 onClick={() => setStep(3)}
                 className="flex items-center gap-1 rounded-xl border border-white/10 px-4 py-3 text-sm text-slate-400 transition-colors hover:text-white"
@@ -603,18 +622,18 @@ export default function OnboardingPage() {
                 <ChevronLeft size={16} /> Voltar
               </button>
               <button
-                onClick={() => handleStep4(true)}
-                disabled={loading}
-                className="rounded-xl border border-white/10 px-5 py-3 text-sm text-slate-400 transition-colors hover:text-white disabled:opacity-50"
-              >
-                Saltar
-              </button>
-              <button
                 onClick={() => handleStep4(false)}
                 disabled={loading}
                 className="flex-1 rounded-xl bg-[#00B4D8] py-3 font-semibold text-white transition-colors hover:bg-[#0090b0] disabled:opacity-50"
               >
                 {loading ? "A guardar…" : "Concluir"}
+              </button>
+              <button
+                onClick={() => handleStep4(true)}
+                disabled={loading}
+                className="text-xs text-slate-600 hover:text-slate-400 transition-colors disabled:opacity-40 whitespace-nowrap"
+              >
+                Saltar
               </button>
             </div>
           </div>

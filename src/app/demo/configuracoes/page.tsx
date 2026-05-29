@@ -37,7 +37,7 @@ const HORARIOS = [
 ];
 
 const PROFISSIONAIS = [
-  { nome: "Diana Garcia",    funcao: "Cabeleireira Sénior", inicial: "D" },
+  { nome: "Sofía García",    funcao: "Cabeleireira Sénior", inicial: "S" },
   { nome: "Joana Silva",     funcao: "Esteticista",          inicial: "J" },
   { nome: "Marta Ferreira",  funcao: "Manicure",             inicial: "M" },
 ];

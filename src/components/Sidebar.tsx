@@ -17,6 +17,7 @@ import {
   Cake,
   Star,
   Award,
+  X,
 } from "lucide-react";
 import { createSupabaseBrowserClient } from "@/utils/supabase/client";
 
@@ -37,9 +38,11 @@ interface SidebarProps {
   /** Override for demo mode — skips Supabase calls */
   demoBusinessName?: string;
   demoLogoInitials?: string;
+  /** Callback para cerrar el drawer en móvil */
+  onClose?: () => void;
 }
 
-export default function Sidebar({ demoBusinessName, demoLogoInitials }: SidebarProps = {}) {
+export default function Sidebar({ demoBusinessName, demoLogoInitials, onClose }: SidebarProps = {}) {
   const pathname = usePathname();
   const [businessName, setBusinessName] = useState(demoBusinessName ?? "VagasIA");
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
@@ -86,7 +89,17 @@ export default function Sidebar({ demoBusinessName, demoLogoInitials }: SidebarP
   return (
     <aside className="flex h-screen w-60 flex-col border-r border-white/5 bg-[#1E293B]">
       {/* Header: logo + nome do negócio */}
-      <div className="flex flex-col items-center gap-2 border-b border-white/5 px-4 py-5">
+      <div className="relative flex flex-col items-center gap-2 border-b border-white/5 px-4 py-5">
+        {/* Botón cerrar — solo en modo drawer móvil */}
+        {onClose && (
+          <button
+            onClick={onClose}
+            className="absolute right-3 top-3 rounded-lg p-1 text-slate-500 hover:bg-white/10 hover:text-white transition-colors"
+            aria-label="Fechar menu"
+          >
+            <X size={16} />
+          </button>
+        )}
         {logoUrl ? (
           <Image
             src={logoUrl}
@@ -120,6 +133,7 @@ export default function Sidebar({ demoBusinessName, demoLogoInitials }: SidebarP
             <Link
               key={href}
               href={demoHref}
+              onClick={onClose}
               className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition-colors ${
                 active
                   ? "bg-[#00B4D8]/15 font-medium text-[#00B4D8]"

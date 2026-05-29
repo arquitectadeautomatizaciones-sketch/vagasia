@@ -4,7 +4,7 @@
  * Marca el onboarding como completado para el negocio autenticado:
  *   1. Guarda trial_started_at en businesses y app_metadata
  *   2. Genera available_slots para las próximas 4 semanas (silencioso si falla)
- *   3. Notifica a Diana vía webhook de n8n (fire-and-forget)
+ *   3. Notifica a Sofía vía webhook de n8n (fire-and-forget)
  */
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
@@ -21,8 +21,8 @@ function adminDb() {
   );
 }
 
-/** Envía notificación WhatsApp a Diana vía webhook n8n (fire-and-forget). */
-async function notifyDiana(payload: {
+/** Envía notificación WhatsApp a Sofía vía webhook n8n (fire-and-forget). */
+async function notifySofía(payload: {
   businessId: string;
   name: string;
   category: string;
@@ -42,7 +42,7 @@ async function notifyDiana(payload: {
     });
   } catch (err) {
     // No bloquea el onboarding
-    console.error("[onboarding/complete] Error al notificar Diana:", err);
+    console.error("[onboarding/complete] Error al notificar Sofía:", err);
   }
 }
 
@@ -89,8 +89,8 @@ export async function POST() {
     console.error("[onboarding/complete] Excepción al generar slots:", slotErr);
   }
 
-  // 3. Notificar a Diana vía n8n (fire-and-forget — no bloquea la respuesta)
-  notifyDiana({
+  // 3. Notificar a Sofía vía n8n (fire-and-forget — no bloquea la respuesta)
+  notifySofía({
     businessId,
     name:     business?.name     ?? "—",
     category: business?.category ?? "—",
