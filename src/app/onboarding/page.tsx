@@ -49,7 +49,23 @@ const DEFAULT_HOURS: DayConfig[] = [
   { day_of_week: 0, label: "Domingo",       is_closed: true,  open_time: "09:00", close_time: "13:00" },
 ];
 
-const CATEGORIES = ["Cabeleireira", "Unhas", "Sobrancelhas", "Estética", "Barbearia"];
+const CATEGORIES = [
+  "Cabeleireira",
+  "Barbearia",
+  "Unhas & Manicure",
+  "Sobrancelhas & Lashes",
+  "Estética & Spa",
+  "Fisioterapeuta",
+  "Nutricionista",
+  "Psicólogo/a",
+  "Médico/a",
+  "Dentista",
+  "Personal Trainer",
+  "Advogado/a",
+  "Contabilista",
+  "Fotógrafo/a",
+  "Outra profissão",
+];
 
 function isoDate(offsetDays: number): string {
   const d = new Date();
@@ -118,6 +134,7 @@ export default function OnboardingPage() {
   // Step 1
   const [businessName, setBusinessName] = useState("");
   const [category, setCategory] = useState("");
+  const [customCategory, setCustomCategory] = useState("");
 
   // Step 2
   const [hours, setHours] = useState<DayConfig[]>(DEFAULT_HOURS);
@@ -172,10 +189,14 @@ export default function OnboardingPage() {
 
   async function handleStep1() {
     if (!category) { setError("Escolhe o tipo de negócio."); return; }
+    if (category === "Outra profissão" && !customCategory.trim()) {
+      setError("Indica a tua profissão."); return;
+    }
     if (!businessName.trim()) { setError("Indica o nome do negócio."); return; }
+    const finalCategory = category === "Outra profissão" ? customCategory.trim() : category;
     setError(""); setLoading(true);
     try {
-      await api("/api/onboarding/step1", "PATCH", { name: businessName, category });
+      await api("/api/onboarding/step1", "PATCH", { name: businessName, category: finalCategory });
       setStep(2);
     } catch (e) {
       setError((e as Error).message);
@@ -308,7 +329,10 @@ export default function OnboardingPage() {
                   <button
                     key={cat}
                     type="button"
-                    onClick={() => setCategory(cat)}
+                    onClick={() => {
+                      setCategory(cat);
+                      if (cat !== "Outra profissão") setCustomCategory("");
+                    }}
                     className={`rounded-xl border px-4 py-3 text-sm font-medium transition-colors ${
                       category === cat
                         ? "border-[#00B4D8] bg-[#00B4D8]/10 text-[#00B4D8]"
@@ -319,6 +343,19 @@ export default function OnboardingPage() {
                   </button>
                 ))}
               </div>
+
+              {category === "Outra profissão" && (
+                <div className="mt-3">
+                  <input
+                    type="text"
+                    autoFocus
+                    placeholder="Ex: Arquiteta, Coach, Terapeuta..."
+                    value={customCategory}
+                    onChange={(e) => setCustomCategory(e.target.value)}
+                    className={inputCls}
+                  />
+                </div>
+              )}
             </div>
 
             <button

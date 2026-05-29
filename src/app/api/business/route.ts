@@ -8,7 +8,7 @@ export async function GET() {
 
   const { data, error } = await createSupabaseAdminClient()
     .from("businesses")
-    .select("id, name, logo_url, category, phone, email, address")
+    .select("id, name, logo_url, category, phone, email, address, whatsapp_phone_number_id")
     .eq("id", businessId)
     .single();
 
