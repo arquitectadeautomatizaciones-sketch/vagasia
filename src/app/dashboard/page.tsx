@@ -10,6 +10,10 @@ import {
   Clock,
   XCircle,
   Zap,
+  Globe,
+  Mail,
+  Phone,
+  MapPin,
 } from "lucide-react";
 
 const TRIAL_DAYS = 7;
@@ -219,6 +223,51 @@ export default async function DashboardPage() {
             </div>
           )}
         </div>
+
+        {/* ── Sección de soporte ──────────────────────────────────────────── */}
+        <div className="rounded-xl border border-[#2DD4BF]/20 bg-[#0F172A]/60 p-6">
+          <h2 className="mb-4 text-sm font-semibold text-white">
+            Precisas de ajuda? Estamos sempre aqui 💚
+          </h2>
+
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <a
+              href="https://dianagarcia.pt/home"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm text-slate-300 transition-colors hover:bg-white/5 hover:text-white"
+            >
+              <Globe size={15} className="shrink-0 text-[#2DD4BF]" />
+              dianagarcia.pt/home
+            </a>
+
+            <a
+              href="mailto:geral@dianagarcia.pt"
+              className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm text-slate-300 transition-colors hover:bg-white/5 hover:text-white"
+            >
+              <Mail size={15} className="shrink-0 text-[#2DD4BF]" />
+              geral@dianagarcia.pt
+            </a>
+
+            <a
+              href="tel:+351911816539"
+              className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm text-slate-300 transition-colors hover:bg-white/5 hover:text-white"
+            >
+              <Phone size={15} className="shrink-0 text-[#2DD4BF]" />
+              +351 911 816 539
+            </a>
+
+            <div className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm text-slate-300">
+              <MapPin size={15} className="shrink-0 text-[#2DD4BF]" />
+              Viana do Castelo, Portugal
+            </div>
+          </div>
+
+          <p className="mt-4 text-xs text-slate-500">
+            A nossa equipa responde de segunda a sexta, mas a Sofía está disponível 24/7.
+          </p>
+        </div>
+
       </div>
     </AppLayout>
   );
