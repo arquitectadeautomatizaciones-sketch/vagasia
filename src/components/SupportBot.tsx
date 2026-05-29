@@ -3,11 +3,16 @@
 import { useState, useRef, useEffect } from "react";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
-import { MessageCircle, X, Send } from "lucide-react";
+import { X, Send } from "lucide-react";
 import { createSupabaseBrowserClient } from "@/utils/supabase/client";
 
 const SOFIA_AVATAR =
   "https://assets.cdn.filesafe.space/MgsViYLMmCdJksx9p3va/media/69e8ba57a1636a6c65273241.png";
+
+// Clave de localStorage para el mensaje de bienvenida del onboarding (Mensaje A)
+const LS_ONBOARDING_KEY = "sofia_onboarding_welcome";
+// Clave de localStorage para evitar abrir el chat más de una vez en dashboard
+const LS_GREETED_KEY = "bot_greeted";
 
 const TRIAL_DAYS = 7;
 
@@ -16,23 +21,32 @@ interface Message {
   content: string;
 }
 
-const WELCOME: Message = {
+// ── Mensaje B: bienvenida normal al abrir el chat ────────────────────────────
+const WELCOME_DEFAULT: Message = {
   role: "assistant",
-  content:
-    "Olá! Sou a Sofía, a tua assistente VagasIA. Como posso ajudar-te hoje? Podes perguntar-me sobre marcações, clientes, fidelização, financeiro ou qualquer outra funcionalidade.",
+  content: "Olá! Sou a Sofía 💚 Como posso ajudar-te hoje?",
 };
 
-const TRIAL_WELCOME: Message = {
-  role: "assistant",
-  content:
-    "Olá! 👋 Sou a Sofía, a tua assistente pessoal. Vi que acabaste de começar o teu período de teste — estou aqui para te ajudar a tirar o máximo proveito do VagasIA. Posso mostrar-te por onde começar? 😊",
-};
-
+// ── Demo ──────────────────────────────────────────────────────────────────────
 const DEMO_WELCOME: Message = {
   role: "assistant",
   content:
     "Olá! 👋 Estás a explorar o VagasIA. Tens alguma dúvida sobre o que estás a ver? Estou aqui para explicar tudo! 😊",
 };
+
+// ── Mensaje A: solo al terminar el onboarding, con el nombre real ─────────────
+function makeOnboardingWelcome(name: string): Message {
+  return {
+    role: "assistant",
+    content:
+      `Olá ${name}! 🎉 Bem-vindo/a à família VagasIA!\n\n` +
+      `Obrigada pela confiança que depositaste em nós — é com muito orgulho que te recebemos.\n\n` +
+      `Sou a Sofía, da equipa de apoio ao cliente da VagasIA 💚 Estou aqui para te ajudar com qualquer dúvida — marcações, clientes, fidelização, financeiro ou qualquer outra funcionalidade.\n\n` +
+      `Sempre que precisares de ajuda ou tiveres dificuldade a gerir a tua app, volta aqui a qualquer hora. Alguém da nossa equipa estará sempre disponível para te ajudar de imediato.\n\n` +
+      `Estamos muito felizes por teres dado este passo. Vamos juntos fazer o teu negócio crescer! 💪\n\n` +
+      `Como posso ajudar-te hoje?`,
+  };
+}
 
 const QUICK_QUESTIONS = [
   "Como adiciono um cliente?",
@@ -44,7 +58,7 @@ const QUICK_QUESTIONS = [
 export default function SupportBot() {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
-  const [messages, setMessages] = useState<Message[]>([WELCOME]);
+  const [messages, setMessages] = useState<Message[]>([WELCOME_DEFAULT]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -63,7 +77,6 @@ export default function SupportBot() {
 
   // Auto-open logic based on route
   useEffect(() => {
-    // Cancel any pending timer from previous route
     if (autoOpenTimerRef.current) {
       clearTimeout(autoOpenTimerRef.current);
       autoOpenTimerRef.current = null;
@@ -72,16 +85,39 @@ export default function SupportBot() {
     let cancelled = false;
 
     if (pathname.startsWith("/demo")) {
-      // Demo pages: sempre abrir após 5 segundos com mensagem própria
+      // Demo: abre tras 5 s con mensaje de demo
       setOpen(false);
       setMessages([DEMO_WELCOME]);
       autoOpenTimerRef.current = setTimeout(() => {
         if (!cancelled) setOpen(true);
       }, 5000);
+
+    } else if (pathname === "/onboarding") {
+      // Onboarding done: leer localStorage para el Mensaje A (solo una vez)
+      const raw = typeof window !== "undefined"
+        ? localStorage.getItem(LS_ONBOARDING_KEY)
+        : null;
+      if (raw) {
+        try {
+          const { name, shown } = JSON.parse(raw) as { name: string; shown: boolean };
+          if (!shown && name) {
+            setMessages([makeOnboardingWelcome(name)]);
+            autoOpenTimerRef.current = setTimeout(() => {
+              if (cancelled) return;
+              setOpen(true);
+              // Marcar como mostrado para no repetir
+              localStorage.setItem(LS_ONBOARDING_KEY, JSON.stringify({ name, shown: true }));
+            }, 1500);
+          }
+        } catch {
+          // JSON malformado — ignorar
+        }
+      }
+
     } else if (pathname === "/dashboard") {
-      // Dashboard: abrir apenas na primeira visita durante trial
+      // Dashboard: abrir solo en la primera visita durante trial (Mensaje B)
       const alreadyGreeted = typeof window !== "undefined"
-        ? localStorage.getItem("bot_greeted") === "true"
+        ? localStorage.getItem(LS_GREETED_KEY) === "true"
         : true;
 
       if (!alreadyGreeted) {
@@ -96,11 +132,11 @@ export default function SupportBot() {
                 TRIAL_DAYS * 24 * 60 * 60 * 1000;
 
             if (inTrial) {
-              setMessages([TRIAL_WELCOME]);
+              setMessages([WELCOME_DEFAULT]);
               autoOpenTimerRef.current = setTimeout(() => {
                 if (cancelled) return;
                 setOpen(true);
-                localStorage.setItem("bot_greeted", "true");
+                localStorage.setItem(LS_GREETED_KEY, "true");
               }, 3000);
             }
           });
@@ -198,19 +234,28 @@ export default function SupportBot() {
 
   return (
     <>
-      {/* Chat panel — sempre no DOM, animado com opacity + transform */}
+      {/* ── Panel del chat ─────────────────────────────────────────────────── */}
       <div
         aria-hidden={!open}
-        className={`fixed bottom-20 right-4 z-50 flex flex-col rounded-2xl border border-white/10 bg-[#0F172A] shadow-2xl
-          transition duration-300 ease-out origin-bottom-right
-          ${open
+        className={[
+          // Posición y z-index
+          "fixed bottom-20 right-2 sm:right-4 z-50",
+          // Tamaño: compacto en móvil, más grande en desktop
+          "w-[min(320px,calc(100vw-16px))] sm:w-[360px]",
+          "max-h-[420px] sm:max-h-[520px]",
+          // Estructura
+          "flex flex-col",
+          // Aspecto
+          "rounded-2xl border border-white/10 bg-[#0F172A] shadow-2xl",
+          // Animación de apertura/cierre
+          "transition duration-300 ease-out origin-bottom-right",
+          open
             ? "opacity-100 scale-100 pointer-events-auto"
-            : "opacity-0 scale-95 pointer-events-none"
-          }`}
-        style={{ width: 360, maxHeight: 520 }}
+            : "opacity-0 scale-95 pointer-events-none",
+        ].join(" ")}
       >
         {/* Header */}
-        <div className="flex items-center gap-3 rounded-t-2xl bg-[#00B4D8] px-4 py-3">
+        <div className="flex items-center gap-3 rounded-t-2xl bg-[#00B4D8] px-4 py-3 shrink-0">
           <Image
             src={SOFIA_AVATAR}
             alt="Sofía"
@@ -222,16 +267,18 @@ export default function SupportBot() {
             <p className="text-sm font-semibold text-white leading-tight">Sofía</p>
             <p className="text-[11px] text-white/70 leading-tight">Assistente VagasIA</p>
           </div>
+          {/* X grande y visible */}
           <button
             onClick={() => setOpen(false)}
-            className="rounded-lg p-1 text-white/70 hover:bg-white/10 hover:text-white transition-colors"
+            className="rounded-lg p-2 text-white/80 hover:bg-white/20 hover:text-white transition-colors"
+            aria-label="Fechar chat"
           >
-            <X size={16} />
+            <X size={20} strokeWidth={2.5} />
           </button>
         </div>
 
         {/* Messages */}
-        <div className="flex-1 overflow-y-auto p-4 space-y-3" style={{ minHeight: 0 }}>
+        <div className="flex-1 overflow-y-auto p-3 sm:p-4 space-y-3 min-h-0">
           {messages.map((m, i) => (
             <div
               key={i}
@@ -247,7 +294,7 @@ export default function SupportBot() {
                 />
               )}
               <div
-                className={`max-w-[80%] rounded-2xl px-3.5 py-2.5 text-sm leading-relaxed ${
+                className={`max-w-[80%] rounded-2xl px-3 py-2 text-sm leading-relaxed whitespace-pre-wrap ${
                   m.role === "user"
                     ? "bg-[#00B4D8] text-white rounded-tr-sm"
                     : "bg-[#1E293B] text-slate-200 rounded-tl-sm"
@@ -283,7 +330,7 @@ export default function SupportBot() {
         </div>
 
         {/* Input */}
-        <div className="border-t border-white/5 p-3">
+        <div className="border-t border-white/5 p-3 shrink-0">
           <form
             onSubmit={(e) => {
               e.preventDefault();
@@ -297,7 +344,7 @@ export default function SupportBot() {
               onChange={(e) => setInput(e.target.value)}
               placeholder="Escreve a tua pergunta…"
               disabled={loading}
-              className="flex-1 rounded-xl bg-[#1E293B] px-3.5 py-2.5 text-sm text-white placeholder-slate-600 outline-none focus:ring-1 focus:ring-[#00B4D8]/50 disabled:opacity-50 transition-all"
+              className="flex-1 rounded-xl bg-[#1E293B] px-3 py-2 text-sm text-white placeholder-slate-600 outline-none focus:ring-1 focus:ring-[#00B4D8]/50 disabled:opacity-50 transition-all"
             />
             <button
               type="submit"
@@ -310,7 +357,7 @@ export default function SupportBot() {
         </div>
       </div>
 
-      {/* Floating button */}
+      {/* ── Botón flotante ─────────────────────────────────────────────────── */}
       <button
         onClick={() => setOpen((v) => !v)}
         className="fixed bottom-4 right-4 z-50 flex h-14 w-14 items-center justify-center rounded-full bg-[#00B4D8] shadow-lg hover:bg-[#0090b0] transition-colors overflow-hidden"

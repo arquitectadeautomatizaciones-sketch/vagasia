@@ -139,6 +139,8 @@ export default function OnboardingPage() {
   const [businessName, setBusinessName] = useState("");
   const [category, setCategory] = useState("");
   const [customCategory, setCustomCategory] = useState("");
+  // Nombre personal del usuario (de auth metadata) — usado en el Mensaje A de Sofía
+  const [userName, setUserName] = useState("");
 
   // Step 2
   const [hours, setHours] = useState<DayConfig[]>(DEFAULT_HOURS);
@@ -157,7 +159,7 @@ export default function OnboardingPage() {
     window.location.href = "/login";
   }
 
-  // On mount: check if already onboarded, prefill business name
+  // On mount: check if already onboarded, prefill business name and personal name
   useEffect(() => {
     createSupabaseBrowserClient()
       .auth.getUser()
@@ -167,6 +169,9 @@ export default function OnboardingPage() {
           return;
         }
         setBusinessName(user?.app_metadata?.business_name ?? "");
+        // Nombre personal del usuario (guardado en user_metadata al registrarse)
+        const name = (user?.user_metadata?.name as string | undefined) ?? "";
+        setUserName(name);
         setChecking(false);
       });
   }, [router]);
@@ -249,6 +254,12 @@ export default function OnboardingPage() {
       }
       await api("/api/onboarding/complete", "POST");
       await createSupabaseBrowserClient().auth.refreshSession();
+      // Guardar el nombre para que Sofía muestre el Mensaje A al terminar el onboarding
+      const displayName = userName.trim() || businessName.trim() || "cliente";
+      localStorage.setItem(
+        "sofia_onboarding_welcome",
+        JSON.stringify({ name: displayName, shown: false })
+      );
       setStep("done");
     } catch (e) {
       setError((e as Error).message);
