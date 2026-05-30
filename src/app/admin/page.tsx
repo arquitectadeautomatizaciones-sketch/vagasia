@@ -15,6 +15,7 @@ interface Negocio {
   phone: string;
   email: string;
   whatsapp_number: string | null;
+  zapi_instance_url: string | null;
   is_active: boolean;
   created_at: string;
   user_name: string | null;
@@ -176,6 +177,69 @@ function WhatsAppEditor({
   );
 }
 
+function ZApiEditor({
+  businessId,
+  initial,
+}: {
+  businessId: string;
+  initial: string | null;
+}) {
+  const [value, setValue] = useState(initial ?? "");
+  const [state, setState] = useState<SaveState>("idle");
+  const [errMsg, setErrMsg] = useState("");
+
+  async function save() {
+    setState("saving");
+    setErrMsg("");
+    try {
+      const res = await fetch(`/api/admin/professionals/${businessId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ zapi_instance_url: value.trim() || null }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) { setErrMsg(data.error ?? "Error"); setState("error"); return; }
+      setState("saved");
+      setTimeout(() => setState("idle"), 2000);
+    } catch {
+      setState("error");
+    }
+  }
+
+  const dirty = value.trim() !== (initial ?? "");
+
+  return (
+    <div className="flex items-center gap-2 min-w-[220px]">
+      <input
+        type="text"
+        placeholder="https://api.z-api.io/instances/…"
+        value={value}
+        onChange={(e) => { setValue(e.target.value); setState("idle"); }}
+        className="flex-1 rounded-lg border border-white/10 bg-[#0F172A] px-3 py-1.5 text-sm text-white placeholder-slate-600 focus:border-[#2DD4BF] focus:outline-none"
+      />
+      {dirty && state !== "saved" && (
+        <button
+          onClick={save}
+          disabled={state === "saving"}
+          className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-[#2DD4BF] text-[#0F172A] transition-colors hover:bg-[#25b8a5] disabled:opacity-50"
+        >
+          {state === "saving" ? <Loader2 size={13} className="animate-spin" /> : <Check size={13} />}
+        </button>
+      )}
+      {state === "saved" && (
+        <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-[#2DD4BF]/15 text-[#2DD4BF]">
+          <Check size={13} />
+        </span>
+      )}
+      {state === "error" && (
+        <span title={errMsg} className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-red-500/15 text-red-400">
+          <X size={13} />
+        </span>
+      )}
+    </div>
+  );
+}
+
 export default function AdminPage() {
   const [negocios, setNegocios] = useState<Negocio[]>([]);
   const [loading, setLoading] = useState(true);
@@ -316,6 +380,7 @@ export default function AdminPage() {
                     <th className="px-4 py-3 text-center">Onboarding</th>
                     <th className="px-4 py-3">Estado</th>
                     <th className="px-4 py-3">WhatsApp</th>
+                    <th className="px-4 py-3">Z-API URL</th>
                     <th className="px-4 py-3">Acciones</th>
                   </tr>
                 </thead>
@@ -366,6 +431,14 @@ export default function AdminPage() {
                         <WhatsAppEditor
                           businessId={n.business_id}
                           initial={n.whatsapp_number}
+                        />
+                      </td>
+
+                      {/* Z-API URL */}
+                      <td className="px-4 py-4">
+                        <ZApiEditor
+                          businessId={n.business_id}
+                          initial={n.zapi_instance_url}
                         />
                       </td>
 

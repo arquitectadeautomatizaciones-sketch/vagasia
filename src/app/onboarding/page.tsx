@@ -39,7 +39,7 @@ interface ApptInput {
   time: string;
 }
 
-type StepNum = 1 | 2 | 3 | 4 | "done";
+type StepNum = 1 | 2 | 3 | 4 | 5 | "done";
 
 // ——— Constants ———
 
@@ -96,10 +96,10 @@ async function api(path: string, method: string, body?: unknown) {
 // ——— Progress bar ———
 
 function Progress({ step }: { step: StepNum }) {
-  const current = step === "done" ? 4 : (step as number);
+  const current = step === "done" ? 5 : (step as number);
   return (
     <div className="flex items-center gap-2 mb-8">
-      {[1, 2, 3, 4].map((n) => (
+      {[1, 2, 3, 4, 5].map((n) => (
         <div key={n} className="flex items-center gap-2">
           <div
             className={`flex h-7 w-7 items-center justify-center rounded-full text-xs font-semibold transition-colors ${
@@ -112,15 +112,15 @@ function Progress({ step }: { step: StepNum }) {
           >
             {n < current ? <Check size={12} /> : n}
           </div>
-          {n < 4 && (
+          {n < 5 && (
             <div
-              className={`h-px w-8 transition-colors ${n < current ? "bg-[#00B4D8]" : "bg-white/10"}`}
+              className={`h-px w-6 transition-colors ${n < current ? "bg-[#00B4D8]" : "bg-white/10"}`}
             />
           )}
         </div>
       ))}
       <span className="ml-2 text-xs text-slate-500">
-        {step === "done" ? "Concluído" : `Passo ${step} de 4`}
+        {step === "done" ? "Concluído" : `Passo ${step} de 5`}
       </span>
     </div>
   );
@@ -133,6 +133,7 @@ export default function OnboardingPage() {
   const [checking, setChecking] = useState(true);
   const [step, setStep] = useState<StepNum>(1);
   const [loading, setLoading] = useState(false);
+  const [dedicatedAccepted, setDedicatedAccepted] = useState(false);
   const [error, setError] = useState("");
 
   // Step 1
@@ -649,20 +650,116 @@ export default function OnboardingPage() {
                 <ChevronLeft size={16} /> Voltar
               </button>
               <button
-                onClick={() => handleStep4(false)}
+                onClick={async () => {
+                  // Guardar marcações antes de avanzar a la pantalla de aceptación
+                  setError(""); setLoading(true);
+                  try {
+                    if (apptRows.length > 0) {
+                      const valid = apptRows.filter(
+                        (a) => a.client_name.trim() && a.client_phone.trim() && a.service_id && a.date && a.time
+                      );
+                      if (valid.length > 0) {
+                        await api("/api/onboarding/step4", "POST", { appointments: valid });
+                      }
+                    }
+                    setStep(5);
+                  } catch (e) {
+                    setError((e as Error).message);
+                  } finally {
+                    setLoading(false);
+                  }
+                }}
                 disabled={loading}
                 className="flex-1 rounded-xl bg-[#00B4D8] py-3 font-semibold text-white transition-colors hover:bg-[#0090b0] disabled:opacity-50"
               >
-                {loading ? "A guardar…" : "Concluir"}
+                {loading ? "A guardar…" : "Seguinte →"}
               </button>
               <button
-                onClick={() => handleStep4(true)}
+                onClick={() => setStep(5)}
                 disabled={loading}
                 className="text-xs text-slate-600 hover:text-slate-400 transition-colors disabled:opacity-40 whitespace-nowrap"
               >
                 Saltar
               </button>
             </div>
+          </div>
+        )}
+
+        {/* ——— Step 5 — Número dedicado ——— */}
+        {step === 5 && (
+          <div className="rounded-2xl border border-white/5 bg-[#1E293B] p-6">
+            {/* Ícono */}
+            <div className="mb-5 flex h-14 w-14 items-center justify-center rounded-2xl bg-[#00B4D8]/10">
+              <span className="text-2xl">📱</span>
+            </div>
+
+            <h1 className="mb-2 text-xl font-bold text-white">O teu número dedicado</h1>
+            <p className="mb-6 text-sm text-slate-400 leading-relaxed">
+              Para que os teus clientes possam marcar consultas diretamente por WhatsApp,
+              vamos atribuir-te um <span className="text-white font-medium">número exclusivo para o teu negócio</span>.
+            </p>
+
+            {/* Beneficios */}
+            <div className="mb-6 space-y-3">
+              {[
+                { icon: "🔒", text: "O teu número pessoal fica totalmente protegido — os clientes nunca o verão." },
+                { icon: "💬", text: "Os clientes contactam o negócio, não a ti diretamente fora de horas." },
+                { icon: "🤖", text: "A Sofia gere tudo: confirmações, lembretes e marcações automáticas 24/7." },
+                { icon: "💚", text: "Nós assumimos o custo do número — não pagas nada extra." },
+              ].map(({ icon, text }) => (
+                <div key={text} className="flex items-start gap-3 rounded-xl bg-white/[0.03] px-4 py-3">
+                  <span className="mt-0.5 text-base">{icon}</span>
+                  <p className="text-sm text-slate-300 leading-relaxed">{text}</p>
+                </div>
+              ))}
+            </div>
+
+            {/* Checkbox de aceptación */}
+            <label className="mb-6 flex cursor-pointer items-start gap-3 rounded-xl border border-white/10 bg-white/[0.02] px-4 py-4 transition-colors hover:bg-white/[0.04]">
+              <div className="mt-0.5 shrink-0">
+                <input
+                  type="checkbox"
+                  checked={dedicatedAccepted}
+                  onChange={(e) => setDedicatedAccepted(e.target.checked)}
+                  className="sr-only"
+                />
+                <div
+                  className={`flex h-5 w-5 items-center justify-center rounded-md border-2 transition-colors ${
+                    dedicatedAccepted
+                      ? "border-[#00B4D8] bg-[#00B4D8]"
+                      : "border-white/20 bg-transparent"
+                  }`}
+                >
+                  {dedicatedAccepted && <Check size={11} className="text-white" strokeWidth={3} />}
+                </div>
+              </div>
+              <span className="text-sm text-slate-300 leading-relaxed">
+                Entendi e aceito receber um número de WhatsApp dedicado para o meu negócio.
+              </span>
+            </label>
+
+            {/* Botones */}
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() => setStep(4)}
+                className="flex items-center gap-1 rounded-xl border border-white/10 px-4 py-3 text-sm text-slate-400 transition-colors hover:text-white"
+              >
+                <ChevronLeft size={16} /> Voltar
+              </button>
+              <button
+                onClick={() => handleStep4(true)}
+                disabled={!dedicatedAccepted || loading}
+                className="flex-1 rounded-xl bg-[#00B4D8] py-3 font-semibold text-white transition-colors hover:bg-[#0090b0] disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                {loading ? "A finalizar…" : "Concluir ✓"}
+              </button>
+            </div>
+
+            {!dedicatedAccepted && (
+              <p className="mt-3 text-center text-xs text-slate-600">
+                Marca a caixa acima para poder concluir
+              </p>
+            )}
           </div>
         )}
       </div>

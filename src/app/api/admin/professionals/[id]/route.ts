@@ -19,18 +19,35 @@ export async function PATCH(
   if (!(await isAdminUser())) return forbiddenJson();
 
   const { id } = await params;
-  const { whatsapp_number } = await req.json() as { whatsapp_number: string | null };
+  const body = await req.json() as {
+    whatsapp_number?: string | null;
+    zapi_instance_url?: string | null;
+  };
 
-  if (whatsapp_number && !PHONE_RE.test(whatsapp_number)) {
-    return NextResponse.json(
-      { error: "Formato inválido. Use +351XXXXXXXXX (sem espaços)." },
-      { status: 400 }
-    );
+  const patch: Record<string, unknown> = {};
+
+  if ("whatsapp_number" in body) {
+    const wn = body.whatsapp_number;
+    if (wn && !PHONE_RE.test(wn)) {
+      return NextResponse.json(
+        { error: "Formato inválido. Use +351XXXXXXXXX (sem espaços)." },
+        { status: 400 }
+      );
+    }
+    patch.whatsapp_number = wn || null;
+  }
+
+  if ("zapi_instance_url" in body) {
+    patch.zapi_instance_url = body.zapi_instance_url?.trim() || null;
+  }
+
+  if (Object.keys(patch).length === 0) {
+    return NextResponse.json({ error: "Nada para actualizar." }, { status: 400 });
   }
 
   const { error } = await adminDb()
     .from("businesses")
-    .update({ whatsapp_number: whatsapp_number || null })
+    .update(patch)
     .eq("id", id);
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
