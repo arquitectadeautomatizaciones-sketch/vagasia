@@ -468,7 +468,7 @@ export default function OnboardingPage() {
             <h1 className="mb-1 text-xl font-bold text-white">Os teus serviços</h1>
             <p className="mb-6 text-sm text-slate-400">Adiciona os serviços que ofereces.</p>
 
-            <div className="mb-2 grid grid-cols-[1fr_58px_58px_28px] sm:grid-cols-[1fr_80px_80px_32px] gap-2 text-xs font-medium text-slate-500">
+            <div className="mb-2 hidden sm:grid sm:grid-cols-[1fr_80px_80px_32px] gap-2 text-xs font-medium text-slate-500">
               <span>Serviço</span>
               <span className="text-center">Dur.</span>
               <span className="text-center">€</span>
@@ -477,38 +477,54 @@ export default function OnboardingPage() {
 
             <div className="space-y-2">
               {serviceRows.map((svc, idx) => (
-                <div key={idx} className="grid grid-cols-[1fr_58px_58px_28px] sm:grid-cols-[1fr_80px_80px_32px] gap-2">
-                  <input
-                    type="text"
-                    placeholder="Ex: Corte de cabelo"
-                    value={svc.name}
-                    onChange={(e) => setService(idx, { name: e.target.value })}
-                    className={inputCls}
-                  />
-                  <input
-                    type="number"
-                    min={5}
-                    max={480}
-                    value={svc.duration_minutes}
-                    onChange={(e) => setService(idx, { duration_minutes: Number(e.target.value) })}
-                    className={inputCls + " text-center"}
-                  />
-                  <input
-                    type="number"
-                    min={0}
-                    step={0.5}
-                    value={svc.price}
-                    onChange={(e) => setService(idx, { price: Number(e.target.value) })}
-                    className={inputCls + " text-center"}
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setServiceRows((prev) => prev.filter((_, i) => i !== idx))}
-                    disabled={serviceRows.length === 1}
-                    className="flex items-center justify-center rounded-lg text-slate-600 transition-colors hover:text-red-400 disabled:opacity-30"
-                  >
-                    <Trash2 size={15} />
-                  </button>
+                <div key={idx} className="flex flex-col gap-2 sm:grid sm:grid-cols-[1fr_80px_80px_32px]">
+                  {/* Mobile row 1: name full width + delete button */}
+                  <div className="flex gap-2 sm:contents">
+                    <input
+                      type="text"
+                      placeholder="Ex: Corte de cabelo"
+                      value={svc.name}
+                      onChange={(e) => setService(idx, { name: e.target.value })}
+                      className={inputCls + " flex-1"}
+                    />
+                    {/* Delete — visible on mobile only; desktop version below */}
+                    <button
+                      type="button"
+                      onClick={() => setServiceRows((prev) => prev.filter((_, i) => i !== idx))}
+                      disabled={serviceRows.length === 1}
+                      className="flex shrink-0 items-center justify-center rounded-lg text-slate-600 transition-colors hover:text-red-400 disabled:opacity-30 sm:hidden"
+                    >
+                      <Trash2 size={15} />
+                    </button>
+                  </div>
+                  {/* Mobile row 2: duration + price side by side */}
+                  <div className="flex gap-2 sm:contents">
+                    <input
+                      type="number"
+                      min={5}
+                      max={480}
+                      value={svc.duration_minutes}
+                      onChange={(e) => setService(idx, { duration_minutes: Number(e.target.value) })}
+                      className={inputCls + " flex-1 text-center sm:flex-none"}
+                    />
+                    <input
+                      type="number"
+                      min={0}
+                      step={0.5}
+                      value={svc.price}
+                      onChange={(e) => setService(idx, { price: Number(e.target.value) })}
+                      className={inputCls + " flex-1 text-center sm:flex-none"}
+                    />
+                    {/* Delete — desktop only */}
+                    <button
+                      type="button"
+                      onClick={() => setServiceRows((prev) => prev.filter((_, i) => i !== idx))}
+                      disabled={serviceRows.length === 1}
+                      className="hidden sm:flex items-center justify-center rounded-lg text-slate-600 transition-colors hover:text-red-400 disabled:opacity-30"
+                    >
+                      <Trash2 size={15} />
+                    </button>
+                  </div>
                 </div>
               ))}
             </div>
