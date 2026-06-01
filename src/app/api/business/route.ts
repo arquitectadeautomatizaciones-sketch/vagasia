@@ -8,7 +8,7 @@ export async function GET() {
 
   const { data, error } = await createSupabaseAdminClient()
     .from("businesses")
-    .select("id, name, logo_url, category, phone, email, address, whatsapp_phone_number_id, whatsapp_number")
+    .select("id, name, logo_url, category, phone, email, address, whatsapp_phone_number_id, whatsapp_number, whatsapp_accepted")
     .eq("id", businessId)
     .single();
 
@@ -21,13 +21,18 @@ export async function PATCH(request: Request) {
   if (!businessId) return unauthorizedJson();
 
   const body = await request.json();
-  const { logo_url } = body;
+  const { logo_url, whatsapp_accepted } = body;
+
+  // Build update payload with only defined fields
+  const update: Record<string, unknown> = {};
+  if (logo_url !== undefined) update.logo_url = logo_url;
+  if (whatsapp_accepted !== undefined) update.whatsapp_accepted = whatsapp_accepted;
 
   const { data, error } = await createSupabaseAdminClient()
     .from("businesses")
-    .update({ logo_url })
+    .update(update)
     .eq("id", businessId)
-    .select("id, name, logo_url")
+    .select("id, name, logo_url, whatsapp_accepted")
     .single();
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });

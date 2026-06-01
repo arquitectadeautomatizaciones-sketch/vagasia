@@ -466,6 +466,11 @@ export default function ConfiguracoesPage() {
   const [businessId, setBusinessId] = useState<string | null>(null);
   const [businessInitials, setBusinessInitials] = useState("N");
   const [whatsappNumber, setWhatsappNumber] = useState<string | null>(null);
+  const [whatsappAccepted, setWhatsappAccepted] = useState(false);
+  const [businessName, setBusinessName] = useState("");
+  const [waCheckbox, setWaCheckbox] = useState(false);
+  const [waSaving, setWaSaving] = useState(false);
+  const [waSaved, setWaSaved] = useState(false);
   const logoInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -475,14 +480,34 @@ export default function ConfiguracoesPage() {
         if (data.logo_url) setLogoUrl(data.logo_url);
         if (data.id) setBusinessId(data.id);
         if (data.name) {
+          setBusinessName(data.name);
           setBusinessInitials(
             data.name.split(" ").slice(0, 2).map((w: string) => w[0]).join("").toUpperCase()
           );
         }
         setWhatsappNumber(data.whatsapp_number ?? null);
+        setWhatsappAccepted(!!data.whatsapp_accepted);
       })
       .catch(() => {});
   }, []);
+
+  async function handleWaConfirm() {
+    if (!waCheckbox || waSaving) return;
+    setWaSaving(true);
+    try {
+      const res = await fetch("/api/business", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ whatsapp_accepted: true }),
+      });
+      if (res.ok) {
+        setWhatsappAccepted(true);
+        setWaSaved(true);
+      }
+    } finally {
+      setWaSaving(false);
+    }
+  }
 
   useEffect(() => {
     fetch("/api/services?all=true")
@@ -845,11 +870,10 @@ export default function ConfiguracoesPage() {
             {/* WhatsApp */}
             {tab === "whatsapp" && (
               <div className="rounded-xl border border-white/5 bg-[#1E293B] p-6 space-y-5">
-                {/* Header */}
+
+                {/* ── Badge de estado ── */}
                 <div className="flex items-start justify-between gap-4">
-                  <div>
-                    <h2 className="text-base font-semibold text-white">O teu número dedicado WhatsApp</h2>
-                  </div>
+                  <h2 className="text-base font-semibold text-white">O teu número dedicado WhatsApp</h2>
                   {whatsappNumber ? (
                     <div className="flex flex-col items-end gap-1 shrink-0">
                       <span className="flex items-center gap-1.5 rounded-full bg-emerald-500/15 px-3 py-1.5 text-xs font-medium text-emerald-400">
@@ -861,43 +885,101 @@ export default function ConfiguracoesPage() {
                   ) : (
                     <span className="shrink-0 flex items-center gap-1.5 rounded-full bg-amber-500/15 px-3 py-1.5 text-xs font-medium text-amber-400">
                       <span className="h-1.5 w-1.5 rounded-full bg-amber-400" />
-                      A configurar — a nossa equipa está a preparar o teu número
+                      A configurar
                     </span>
                   )}
                 </div>
 
-                {/* Intro */}
-                <p className="text-sm text-slate-400 leading-relaxed">
-                  Para proteger o teu negócio e o teu número pessoal, vamos atribuir-te um número WhatsApp dedicado exclusivamente às tuas marcações.
-                </p>
-
-                {/* Warning Meta */}
-                <div className="rounded-xl border border-amber-500/20 bg-amber-500/5 px-4 py-3 space-y-1.5">
-                  <p className="text-sm font-medium text-amber-300">⚠️ Porquê um número separado?</p>
+                {/* ── Estado 3: número ativo ── */}
+                {whatsappNumber && (
                   <p className="text-sm text-slate-400 leading-relaxed">
-                    A Meta (empresa do WhatsApp) não permite misturar números pessoais com automações. Se o fizéssemos, o teu número pessoal poderia ser bloqueado permanentemente — e perderias o contacto com todos os teus clientes.
+                    O teu número dedicado está ativo e a funcionar. Os teus clientes já podem marcar diretamente por WhatsApp. 💚
                   </p>
-                </div>
+                )}
 
-                {/* Body */}
-                <p className="text-sm text-slate-400 leading-relaxed">
-                  Pensando sempre na tua segurança, nós fornecemos-te um número dedicado apenas para o WhatsApp do teu negócio. Este número:
-                </p>
+                {/* ── Estado 2: aceite feito, aguarda número ── */}
+                {!whatsappNumber && (whatsappAccepted || waSaved) && (
+                  <p className="text-sm text-slate-400 leading-relaxed">
+                    ✅ Perfeito! A nossa equipa está a configurar o teu número dedicado. Em breve receberás uma mensagem de confirmação no WhatsApp. Enquanto isso, podes ir adicionando os teus clientes na app. 💚
+                  </p>
+                )}
 
-                {/* Checklist */}
-                <div className="space-y-2">
-                  {[
-                    "Não é o teu número pessoal",
-                    "É usado exclusivamente para marcações",
-                    "Está incluído no teu plano — sem custo extra",
-                    "É gerido por nós com total segurança",
-                  ].map((text) => (
-                    <div key={text} className="flex items-start gap-2 rounded-xl bg-white/[0.03] px-4 py-2.5">
-                      <span className="mt-0.5 shrink-0">✅</span>
-                      <p className="text-sm text-slate-300 leading-relaxed">{text}</p>
+                {/* ── Estado 1: sem número e sem aceite ── */}
+                {!whatsappNumber && !whatsappAccepted && !waSaved && (
+                  <>
+                    <p className="text-sm text-slate-400 leading-relaxed">
+                      Para que os teus clientes possam marcar diretamente por WhatsApp, vamos atribuir-te um número de telefone real, português e novo — exclusivo para{" "}
+                      <span className="font-medium text-white">{businessName}</span>.
+                    </p>
+                    <p className="text-sm text-slate-400 leading-relaxed">
+                      Este número não é virtual. É uma linha portuguesa real, dedicada exclusivamente ao teu negócio — nunca foi usada por mais ninguém.
+                    </p>
+
+                    {/* Warning Meta */}
+                    <div className="rounded-xl border border-amber-500/20 bg-amber-500/5 px-4 py-3 space-y-1.5">
+                      <p className="text-sm font-medium text-amber-300">⚠️ Porquê um número separado?</p>
+                      <p className="text-sm text-slate-400 leading-relaxed">
+                        A Meta (empresa do WhatsApp) não permite misturar números pessoais com automações. Se o fizéssemos, o teu número pessoal poderia ser bloqueado permanentemente — e perderias o contacto com todos os teus clientes.
+                      </p>
                     </div>
-                  ))}
-                </div>
+
+                    <p className="text-sm text-slate-400 leading-relaxed">Pensando sempre na tua segurança:</p>
+
+                    {/* Checklist */}
+                    <div className="space-y-2">
+                      {[
+                        "Não é o teu número pessoal",
+                        `É um número português real e novo`,
+                        `Exclusivo para ${businessName}`,
+                        "Incluído no teu plano — sem custo extra",
+                        "Gerido por nós com total segurança",
+                      ].map((text) => (
+                        <div key={text} className="flex items-start gap-2 rounded-xl bg-white/[0.03] px-4 py-2.5">
+                          <span className="mt-0.5 shrink-0">✅</span>
+                          <p className="text-sm text-slate-300 leading-relaxed">{text}</p>
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* Checkbox */}
+                    <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-white/10 bg-white/[0.02] px-4 py-4 transition-colors hover:bg-white/[0.04]">
+                      <div className="mt-0.5 shrink-0">
+                        <input
+                          type="checkbox"
+                          checked={waCheckbox}
+                          onChange={(e) => setWaCheckbox(e.target.checked)}
+                          className="sr-only"
+                        />
+                        <div className={`flex h-5 w-5 items-center justify-center rounded-md border-2 transition-colors ${waCheckbox ? "border-[#00B4D8] bg-[#00B4D8]" : "border-white/20 bg-transparent"}`}>
+                          {waCheckbox && (
+                            <svg viewBox="0 0 12 12" fill="none" className="h-3 w-3">
+                              <path d="M2 6l3 3 5-5" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                            </svg>
+                          )}
+                        </div>
+                      </div>
+                      <span className="text-sm text-slate-300 leading-relaxed">
+                        Entendi e aceito receber um número dedicado para o meu negócio
+                      </span>
+                    </label>
+
+                    {/* Botón Confirmar */}
+                    <button
+                      onClick={handleWaConfirm}
+                      disabled={!waCheckbox || waSaving}
+                      className="w-full rounded-xl bg-[#00B4D8] py-3 text-sm font-semibold text-white transition-colors hover:bg-[#0090b0] disabled:cursor-not-allowed disabled:opacity-40"
+                    >
+                      {waSaving ? "A guardar…" : "Confirmar"}
+                    </button>
+
+                    {!waCheckbox && (
+                      <p className="text-center text-xs text-slate-600">
+                        Marca a caixa acima para poder confirmar
+                      </p>
+                    )}
+                  </>
+                )}
+
               </div>
             )}
           </div>
