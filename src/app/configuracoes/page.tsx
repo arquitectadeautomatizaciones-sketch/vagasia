@@ -52,9 +52,24 @@ const TABS: { key: Tab; label: string; icon: React.ElementType }[] = [
 ];
 
 const CATEGORIES = [
-  "Cabeleireira", "Unhas / Manicure", "Sobrancelhas", "Estética",
-  "Spa", "Barbearia", "Nutricionista", "Fisioterapeuta",
-  "Psicólogo", "Personal Trainer", "Fotógrafo", "Tatuador", "Outro",
+  "Cabeleireira",
+  "Barbearia",
+  "Unhas & Manicure",
+  "Sobrancelhas & Lashes",
+  "Estética & Spa",
+  "Fisioterapeuta",
+  "Nutricionista",
+  "Psicólogo/a",
+  "Médico/a",
+  "Dentista",
+  "Personal Trainer",
+  "Advogado/a",
+  "Contabilista",
+  "Consultor",
+  "Coach",
+  "Terapeuta",
+  "Fotógrafo/a",
+  "Outra profissão",
 ];
 
 /* ─── Disponibilidade Tab ─── */

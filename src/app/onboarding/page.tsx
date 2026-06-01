@@ -67,6 +67,9 @@ const CATEGORIES = [
   "Personal Trainer",
   "Advogado/a",
   "Contabilista",
+  "Consultor",
+  "Coach",
+  "Terapeuta",
   "Fotógrafo/a",
   "Outra profissão",
 ];
