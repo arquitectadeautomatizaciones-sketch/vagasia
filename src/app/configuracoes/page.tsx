@@ -465,7 +465,7 @@ export default function ConfiguracoesPage() {
   const [logoError, setLogoError] = useState<string | null>(null);
   const [businessId, setBusinessId] = useState<string | null>(null);
   const [businessInitials, setBusinessInitials] = useState("N");
-  const [whatsappActive, setWhatsappActive] = useState(false);
+  const [whatsappNumber, setWhatsappNumber] = useState<string | null>(null);
   const logoInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -479,7 +479,7 @@ export default function ConfiguracoesPage() {
             data.name.split(" ").slice(0, 2).map((w: string) => w[0]).join("").toUpperCase()
           );
         }
-        setWhatsappActive(!!data.whatsapp_phone_number_id);
+        setWhatsappNumber(data.whatsapp_number ?? null);
       })
       .catch(() => {});
   }, []);
@@ -845,60 +845,59 @@ export default function ConfiguracoesPage() {
             {/* WhatsApp */}
             {tab === "whatsapp" && (
               <div className="rounded-xl border border-white/5 bg-[#1E293B] p-6 space-y-5">
+                {/* Header */}
                 <div className="flex items-start justify-between gap-4">
                   <div>
-                    <h2 className="text-sm font-semibold text-white">WhatsApp Business</h2>
-                    <p className="text-xs text-slate-500 mt-1">
-                      Integração para envio automático de confirmações, lembretes e notificações de vagas.
-                    </p>
+                    <h2 className="text-base font-semibold text-white">O teu número dedicado WhatsApp</h2>
                   </div>
-                  {whatsappActive ? (
-                    <span className="shrink-0 flex items-center gap-1.5 rounded-full bg-emerald-500/15 px-3 py-1.5 text-xs font-medium text-emerald-400">
-                      <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
-                      WhatsApp activo ✅
-                    </span>
+                  {whatsappNumber ? (
+                    <div className="flex flex-col items-end gap-1 shrink-0">
+                      <span className="flex items-center gap-1.5 rounded-full bg-emerald-500/15 px-3 py-1.5 text-xs font-medium text-emerald-400">
+                        <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
+                        Ativo
+                      </span>
+                      <span className="text-xs text-slate-400 font-mono">{whatsappNumber}</span>
+                    </div>
                   ) : (
                     <span className="shrink-0 flex items-center gap-1.5 rounded-full bg-amber-500/15 px-3 py-1.5 text-xs font-medium text-amber-400">
                       <span className="h-1.5 w-1.5 rounded-full bg-amber-400" />
-                      Não configurado — aguarda visita técnica
+                      A configurar — a nossa equipa está a preparar o teu número
                     </span>
                   )}
                 </div>
 
-                <div className="rounded-lg border border-amber-500/20 bg-amber-500/5 p-4 space-y-3">
-                  <p className="text-xs font-semibold text-amber-400">⚠️ Número dedicado obrigatório</p>
-                  <p className="text-xs text-slate-400 leading-relaxed">
-                    A API do WhatsApp Business exige um número de telefone dedicado exclusivamente à plataforma — não pode ser o teu número pessoal nem um número já associado à aplicação WhatsApp.
-                  </p>
-                  <p className="text-xs font-medium text-slate-300">Tens duas opções:</p>
-                  <div className="space-y-2">
-                    <div className="rounded-md bg-[#0F172A] px-3 py-2.5">
-                      <p className="text-xs font-semibold text-white">Opção A — Usar um número existente</p>
-                      <p className="text-xs text-slate-500 mt-0.5">
-                        Portamos um número já teu (fixo ou móvel) para a API do WhatsApp Business. O número deixa de funcionar na app WhatsApp normal.
-                      </p>
-                    </div>
-                    <div className="rounded-md bg-[#0F172A] px-3 py-2.5">
-                      <p className="text-xs font-semibold text-white">Opção B — Obter um número novo</p>
-                      <p className="text-xs text-slate-500 mt-0.5">
-                        Adquires um número virtual dedicado (SIM ou VoIP) e configuramo-lo em conjunto durante a visita técnica.
-                      </p>
-                    </div>
-                  </div>
-                  <p className="text-xs text-slate-500 leading-relaxed">
-                    A configuração completa (Meta Business, verificação de negócio e templates aprovados) é feita pela nossa equipa durante uma visita guiada. Agenda abaixo para escolheres data e hora.
+                {/* Intro */}
+                <p className="text-sm text-slate-400 leading-relaxed">
+                  Para proteger o teu negócio e o teu número pessoal, vamos atribuir-te um número WhatsApp dedicado exclusivamente às tuas marcações.
+                </p>
+
+                {/* Warning Meta */}
+                <div className="rounded-xl border border-amber-500/20 bg-amber-500/5 px-4 py-3 space-y-1.5">
+                  <p className="text-sm font-medium text-amber-300">⚠️ Porquê um número separado?</p>
+                  <p className="text-sm text-slate-400 leading-relaxed">
+                    A Meta (empresa do WhatsApp) não permite misturar números pessoais com automações. Se o fizéssemos, o teu número pessoal poderia ser bloqueado permanentemente — e perderias o contacto com todos os teus clientes.
                   </p>
                 </div>
 
-                <a
-                  href="https://vagasia.vercel.app/marcar"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex items-center justify-center gap-2 w-full rounded-lg bg-[#00B4D8] px-4 py-2.5 text-sm font-semibold text-white hover:bg-[#0090b0] transition-colors"
-                >
-                  <MessageSquare size={15} />
-                  Agendar visita de configuração
-                </a>
+                {/* Body */}
+                <p className="text-sm text-slate-400 leading-relaxed">
+                  Pensando sempre na tua segurança, nós fornecemos-te um número dedicado apenas para o WhatsApp do teu negócio. Este número:
+                </p>
+
+                {/* Checklist */}
+                <div className="space-y-2">
+                  {[
+                    "Não é o teu número pessoal",
+                    "É usado exclusivamente para marcações",
+                    "Está incluído no teu plano — sem custo extra",
+                    "É gerido por nós com total segurança",
+                  ].map((text) => (
+                    <div key={text} className="flex items-start gap-2 rounded-xl bg-white/[0.03] px-4 py-2.5">
+                      <span className="mt-0.5 shrink-0">✅</span>
+                      <p className="text-sm text-slate-300 leading-relaxed">{text}</p>
+                    </div>
+                  ))}
+                </div>
               </div>
             )}
           </div>
