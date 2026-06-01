@@ -696,22 +696,33 @@ export default function OnboardingPage() {
               <span className="text-2xl">📱</span>
             </div>
 
-            <h1 className="mb-2 text-xl font-bold text-white">O teu número dedicado</h1>
-            <p className="mb-6 text-sm text-slate-400 leading-relaxed">
-              Para que os teus clientes possam marcar consultas diretamente por WhatsApp,
-              vamos atribuir-te um <span className="text-white font-medium">número exclusivo para o teu negócio</span>.
+            <h1 className="mb-2 text-xl font-bold text-white">O teu número dedicado WhatsApp</h1>
+            <p className="mb-4 text-sm text-slate-400 leading-relaxed">
+              Para proteger o teu negócio e o teu número pessoal, vamos atribuir-te um número WhatsApp dedicado exclusivamente às tuas marcações.
+            </p>
+
+            {/* Aviso Meta */}
+            <div className="mb-4 rounded-xl border border-amber-500/20 bg-amber-500/5 px-4 py-3">
+              <p className="text-sm text-amber-300 leading-relaxed font-medium mb-1">⚠️ Porquê um número separado?</p>
+              <p className="text-sm text-slate-400 leading-relaxed">
+                A Meta (empresa do WhatsApp) não permite misturar números pessoais com automações. Se o fizéssemos, o teu número pessoal poderia ser bloqueado permanentemente — e perderias o contacto com todos os teus clientes.
+              </p>
+            </div>
+
+            <p className="mb-4 text-sm text-slate-400 leading-relaxed">
+              Pensando sempre na tua segurança, nós fornecemos-te um número dedicado apenas para o WhatsApp do teu negócio. Este número:
             </p>
 
             {/* Beneficios */}
-            <div className="mb-6 space-y-3">
+            <div className="mb-6 space-y-2">
               {[
-                { icon: "🔒", text: "O teu número pessoal fica totalmente protegido — os clientes nunca o verão." },
-                { icon: "💬", text: "Os clientes contactam o negócio, não a ti diretamente fora de horas." },
-                { icon: "🤖", text: "A Sofia gere tudo: confirmações, lembretes e marcações automáticas 24/7." },
-                { icon: "💚", text: "Nós assumimos o custo do número — não pagas nada extra." },
-              ].map(({ icon, text }) => (
-                <div key={text} className="flex items-start gap-3 rounded-xl bg-white/[0.03] px-4 py-3">
-                  <span className="mt-0.5 text-base">{icon}</span>
+                "Não é o teu número pessoal",
+                "É usado exclusivamente para marcações",
+                "Está incluído no teu plano — sem custo extra",
+                "É gerido por nós com total segurança",
+              ].map((text) => (
+                <div key={text} className="flex items-start gap-2 rounded-xl bg-white/[0.03] px-4 py-2.5">
+                  <span className="mt-0.5 text-base shrink-0">✅</span>
                   <p className="text-sm text-slate-300 leading-relaxed">{text}</p>
                 </div>
               ))}
@@ -737,7 +748,7 @@ export default function OnboardingPage() {
                 </div>
               </div>
               <span className="text-sm text-slate-300 leading-relaxed">
-                Entendi e aceito receber um número de WhatsApp dedicado para o meu negócio.
+                Entendi e aceito receber um número dedicado para o meu negócio
               </span>
             </label>
 
