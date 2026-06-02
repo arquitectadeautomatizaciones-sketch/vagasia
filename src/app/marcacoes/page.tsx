@@ -49,8 +49,17 @@ export default function MarcacoesPage() {
     fetch("/api/appointments")
       .then((r) => r.json())
       .then((data) => {
-        if (Array.isArray(data)) setAppointments(data);
-        else setError(data.error ?? "Erro ao carregar marcações.");
+        if (Array.isArray(data)) {
+          // Normalize Supabase FK joins: may return single object or array
+          const normalized = data.map((a: any) => ({
+            ...a,
+            client:  Array.isArray(a.client)  ? a.client[0]  ?? null : a.client  ?? null,
+            service: Array.isArray(a.service) ? a.service[0] ?? null : a.service ?? null,
+          }));
+          setAppointments(normalized);
+        } else {
+          setError(data.error ?? "Erro ao carregar marcações.");
+        }
       })
       .catch(() => setError("Erro ao carregar marcações."))
       .finally(() => setLoading(false));
@@ -162,8 +171,8 @@ export default function MarcacoesPage() {
                 filtered.map((appt) => {
                   const cfg = STATUS_CONFIG[appt.status];
                   const Icon = cfg.icon;
-                  const client = appt.client as unknown as { name: string } | undefined;
-                  const service = appt.service as unknown as { name: string; duration_minutes: number } | undefined;
+                  const client  = appt.client  as { name: string; phone?: string }  | null | undefined;
+                  const service = appt.service as { name: string; duration_minutes?: number } | null | undefined;
                   return (
                     <div
                       key={appt.id}

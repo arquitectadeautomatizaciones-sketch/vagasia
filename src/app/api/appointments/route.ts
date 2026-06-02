@@ -1,9 +1,9 @@
 import { createSupabaseAdminClient } from "@/utils/supabase/admin";
 import { NextRequest, NextResponse } from "next/server";
-import { getAuthBusinessId, unauthorizedJson } from "@/lib/api-auth";
+import { getAuthContext, unauthorizedJson } from "@/lib/api-auth";
 
 export async function GET(req: NextRequest) {
-  const businessId = await getAuthBusinessId();
+  const { businessId, professionalId, role } = await getAuthContext();
   if (!businessId) return unauthorizedJson();
 
   const clientId = new URL(req.url).searchParams.get("client_id");
@@ -16,6 +16,11 @@ export async function GET(req: NextRequest) {
     )
     .eq("business_id", businessId)
     .order("starts_at", { ascending: false });
+
+  // Collaborators only see their own appointments; owners see all
+  if (role === "collaborator" && professionalId) {
+    query = query.eq("professional_id", professionalId);
+  }
 
   if (clientId) query = query.eq("client_id", clientId);
 
