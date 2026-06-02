@@ -67,7 +67,7 @@ export interface Client {
 export interface Appointment {
   id: string;
   business_id: string;
-  professional_id: string;
+  professional_id?: string | null;
   client_id: string;
   service_id: string;
   starts_at: string;
@@ -99,7 +99,7 @@ export interface WaitingListEntry {
 export interface BusinessHours {
   id: string;
   business_id: string;
-  professional_id: string;
+  professional_id?: string | null;
   day_of_week: number;
   open_time: string;
   close_time: string;
