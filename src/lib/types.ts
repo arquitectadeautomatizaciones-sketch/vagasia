@@ -41,7 +41,7 @@ export interface Business {
 export interface Service {
   id: string;
   business_id: string;
-  professional_id: string;
+  professional_id?: string | null;
   name: string;
   duration_minutes: number;
   price: number;
