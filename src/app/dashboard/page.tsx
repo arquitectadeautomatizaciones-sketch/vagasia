@@ -1,7 +1,9 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@supabase/supabase-js";
 import AppLayout from "@/components/AppLayout";
-import { getAuthBusinessId, getAuthUser } from "@/lib/api-auth";
+import DashboardAgenda from "@/components/DashboardAgenda";
+import DashboardTeamSection from "@/components/DashboardTeamSection";
+import { getAuthContext } from "@/lib/api-auth";
 import {
   CalendarCheck,
   Banknote,
@@ -15,35 +17,13 @@ import {
   Phone,
   MapPin,
 } from "lucide-react";
+import type { Professional } from "@/lib/types";
 
 const TRIAL_DAYS = 7;
 
 function trialDaysRemaining(trialStartedAt: string): number {
   const elapsed = Date.now() - new Date(trialStartedAt).getTime();
-  const remaining = TRIAL_DAYS - elapsed / (1000 * 60 * 60 * 24);
-  return Math.ceil(remaining);
-}
-
-function statusColors(status: string) {
-  if (status === "confirmada") return "bg-[#2DD4BF]/15 text-[#2DD4BF]";
-  if (status === "pendente") return "bg-yellow-500/15 text-yellow-400";
-  return "bg-red-500/15 text-red-400";
-}
-
-function statusLabel(status: string) {
-  if (status === "confirmada") return "Confirmada";
-  if (status === "pendente") return "Pendente";
-  return "Cancelada";
-}
-
-function StatusIcon({ status }: { status: string }) {
-  if (status === "confirmada") return <CheckCircle size={13} />;
-  if (status === "pendente") return <Clock size={13} />;
-  return <XCircle size={13} />;
-}
-
-function formatTime(dateStr: string) {
-  return new Date(dateStr).toLocaleTimeString("pt-PT", { hour: "2-digit", minute: "2-digit" });
+  return Math.ceil(TRIAL_DAYS - elapsed / (1000 * 60 * 60 * 24));
 }
 
 function adminClient() {
@@ -55,36 +35,60 @@ function adminClient() {
 }
 
 export default async function DashboardPage() {
-  const [businessId, user] = await Promise.all([getAuthBusinessId(), getAuthUser()]);
+  const { businessId, professionalId, role } = await getAuthContext();
   if (!businessId) redirect("/login");
 
-  const isActive = user?.app_metadata?.is_active === true;
-  const trialStartedAt = user?.app_metadata?.trial_started_at as string | undefined;
-  const daysRemaining = trialStartedAt ? trialDaysRemaining(trialStartedAt) : 0;
-  const showTrialBanner = !isActive && trialStartedAt && daysRemaining > 0;
+  const db        = adminClient();
+  const todayStr  = new Date().toISOString().split("T")[0];
 
-  const todayStr = new Date().toISOString().split("T")[0];
-
-  const { data: appointments } = await adminClient()
+  // Fetch appointments for today — include professional_id for selector filtering
+  // Collaborator: only their own; Owner: all
+  let apptQuery = db
     .from("appointments")
-    .select("id, starts_at, ends_at, status, price, client:client_id(name), service:service_id(name)")
+    .select("id, starts_at, ends_at, status, price, professional_id, client:client_id(name), service:service_id(name)")
     .eq("business_id", businessId)
     .gte("starts_at", `${todayStr}T00:00:00`)
     .lte("starts_at", `${todayStr}T23:59:59`)
     .order("starts_at", { ascending: true });
 
-  const today = appointments ?? [];
-  const confirmed = today.filter((a) => a.status === "confirmada");
-  const pending = today.filter((a) => a.status === "pendente");
-  const cancelled = today.filter((a) => a.status === "cancelada");
-  const revenue = confirmed.reduce((sum, a) => sum + (a.price ?? 0), 0);
+  if (role === "collaborator" && professionalId) {
+    apptQuery = apptQuery.eq("professional_id", professionalId);
+  }
+
+  const [{ data: appointmentsRaw }, { data: professionalsRaw }, user] = await Promise.all([
+    apptQuery,
+    db
+      .from("professionals")
+      .select("id, name, role, is_active")
+      .eq("business_id", businessId)
+      .eq("is_active", true)
+      .order("created_at", { ascending: true }),
+    (async () => {
+      const { createSupabaseServerClient } = await import("@/utils/supabase/server");
+      const supabase = await createSupabaseServerClient();
+      const { data: { user } } = await supabase.auth.getUser();
+      return user;
+    })(),
+  ]);
+
+  const today        = appointmentsRaw ?? [];
+  const professionals: Pick<Professional, "id" | "name" | "role">[] =
+    (professionalsRaw ?? []).map(({ id, name, role }) => ({ id, name, role }));
+
+  // Metrics — always based on total today (regardless of selector)
+  const confirmed        = today.filter((a) => a.status === "confirmada");
+  const pending          = today.filter((a) => a.status === "pendente");
+  const cancelled        = today.filter((a) => a.status === "cancelada");
+  const revenue          = confirmed.reduce((s, a) => s + (a.price ?? 0), 0);
   const confirmationRate = today.length > 0 ? Math.round((confirmed.length / today.length) * 100) : 0;
 
+  const isActive       = user?.app_metadata?.is_active === true;
+  const trialStartedAt = user?.app_metadata?.trial_started_at as string | undefined;
+  const daysRemaining  = trialStartedAt ? trialDaysRemaining(trialStartedAt) : 0;
+  const showTrialBanner = !isActive && trialStartedAt && daysRemaining > 0;
+
   const dateDisplay = new Date().toLocaleDateString("pt-PT", {
-    weekday: "long",
-    day: "numeric",
-    month: "long",
-    year: "numeric",
+    weekday: "long", day: "numeric", month: "long", year: "numeric",
   });
 
   const metrics = [
@@ -92,35 +96,39 @@ export default async function DashboardPage() {
       label: "Marcações Hoje",
       value: today.length.toString(),
       sub: `${confirmed.length} confirmadas · ${pending.length} pendentes`,
-      icon: CalendarCheck,
-      accent: "#00B4D8",
+      icon: CalendarCheck, accent: "#00B4D8",
     },
     {
       label: "Faturação do Dia",
       value: `€${revenue.toFixed(2)}`,
       sub: `${confirmed.length} serviço${confirmed.length !== 1 ? "s" : ""} realizado${confirmed.length !== 1 ? "s" : ""}`,
-      icon: Banknote,
-      accent: "#2DD4BF",
+      icon: Banknote, accent: "#2DD4BF",
     },
     {
       label: "Vagas Recuperadas",
       value: confirmed.length.toString(),
       sub: `${cancelled.length} cancelamento${cancelled.length !== 1 ? "s" : ""} hoje`,
-      icon: TrendingUp,
-      accent: "#00B4D8",
+      icon: TrendingUp, accent: "#00B4D8",
     },
     {
       label: "Taxa de Confirmação",
       value: `${confirmationRate}%`,
       sub: "Marcações de hoje",
-      icon: CheckCircle,
-      accent: "#2DD4BF",
+      icon: CheckCircle, accent: "#2DD4BF",
     },
   ];
+
+  // Cast appointments to match DashboardAgenda's expected shape
+  const appointments = today as Array<{
+    id: string; starts_at: string; ends_at: string; status: string;
+    price: number; professional_id?: string | null;
+    client: { name: string } | null; service: { name: string } | null;
+  }>;
 
   return (
     <AppLayout>
       <div className="p-6 space-y-6">
+
         {/* Header */}
         <div>
           <h1 className="text-xl font-semibold text-white">Dashboard</h1>
@@ -143,8 +151,7 @@ export default async function DashboardPage() {
                 Após o período de teste, a subscrição é de €37/mês.
               </p>
             </div>
-            <a
-              href="/subscribe"
+            <a href="/subscribe"
               className="flex-shrink-0 rounded-lg bg-[#00B4D8] px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-[#0090b0]"
             >
               Subscrever
@@ -157,16 +164,11 @@ export default async function DashboardPage() {
           {metrics.map((m) => {
             const Icon = m.icon;
             return (
-              <div
-                key={m.label}
-                className="rounded-xl border border-white/5 bg-[#1E293B] p-5"
-              >
+              <div key={m.label} className="rounded-xl border border-white/5 bg-[#1E293B] p-5">
                 <div className="flex items-start justify-between">
                   <p className="text-xs text-slate-400 font-medium">{m.label}</p>
-                  <div
-                    className="flex h-8 w-8 items-center justify-center rounded-lg"
-                    style={{ backgroundColor: m.accent + "22" }}
-                  >
+                  <div className="flex h-8 w-8 items-center justify-center rounded-lg"
+                    style={{ backgroundColor: m.accent + "22" }}>
                     <Icon size={16} style={{ color: m.accent }} />
                   </div>
                 </div>
@@ -177,92 +179,40 @@ export default async function DashboardPage() {
           })}
         </div>
 
-        {/* Today's appointments */}
-        <div className="rounded-xl border border-white/5 bg-[#1E293B]">
-          <div className="flex items-center justify-between px-5 py-4 border-b border-white/5">
-            <h2 className="text-sm font-semibold text-white">Agenda de Hoje</h2>
-            <a href="/marcacoes" className="text-xs text-[#00B4D8] hover:underline">
-              Ver tudo
-            </a>
-          </div>
-          {today.length === 0 ? (
-            <p className="px-5 py-8 text-center text-sm text-slate-500">
-              Sem marcações para hoje.
-            </p>
-          ) : (
-            <div className="divide-y divide-white/5">
-              {today.map((appt) => (
-                <div key={appt.id} className="flex items-center gap-4 px-5 py-3.5">
-                  <div className="w-16 text-center">
-                    <p className="text-xs font-medium text-slate-300">
-                      {formatTime(appt.starts_at)}
-                    </p>
-                    <p className="text-[10px] text-slate-600">
-                      {formatTime(appt.ends_at)}
-                    </p>
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-white truncate">
-                      {(appt.client as unknown as { name: string } | null)?.name ?? "—"}
-                    </p>
-                    <p className="text-xs text-slate-500 truncate">
-                      {(appt.service as unknown as { name: string } | null)?.name ?? "—"}
-                    </p>
-                  </div>
-                  <p className="text-sm font-semibold text-slate-300">
-                    €{(appt.price ?? 0).toFixed(2)}
-                  </p>
-                  <span
-                    className={`flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-medium ${statusColors(appt.status)}`}
-                  >
-                    <StatusIcon status={appt.status} />
-                    {statusLabel(appt.status)}
-                  </span>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
+        {/* Agenda con selector de profesional */}
+        <DashboardAgenda
+          appointments={appointments}
+          professionals={professionals}
+          myProfId={professionalId}
+          role={role}
+        />
 
-        {/* ── Sección de soporte ──────────────────────────────────────────── */}
+        {/* Card / Panel del colaborador — solo para owners */}
+        {role === "owner" && (
+          <DashboardTeamSection
+            professionals={professionals}
+          />
+        )}
+
+        {/* Sección de soporte */}
         <div className="rounded-xl border border-[#2DD4BF]/20 bg-[#0F172A]/60 p-6">
           <h2 className="mb-4 text-sm font-semibold text-white">
             Precisas de ajuda? Estamos sempre aqui 💚
           </h2>
-
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <a
-              href="https://dianagarcia.pt/home"
-              target="_blank"
-              rel="noopener noreferrer"
+            <a href="https://dianagarcia.pt/home" target="_blank" rel="noopener noreferrer"
               className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm text-slate-300 transition-colors hover:bg-white/5 hover:text-white"
-            >
-              <Globe size={15} className="shrink-0 text-[#2DD4BF]" />
-              dianagarcia.pt/home
-            </a>
-
-            <a
-              href="mailto:geral@dianagarcia.pt"
+            ><Globe size={15} className="shrink-0 text-[#2DD4BF]" /> dianagarcia.pt/home</a>
+            <a href="mailto:geral@dianagarcia.pt"
               className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm text-slate-300 transition-colors hover:bg-white/5 hover:text-white"
-            >
-              <Mail size={15} className="shrink-0 text-[#2DD4BF]" />
-              geral@dianagarcia.pt
-            </a>
-
-            <a
-              href="tel:+351911816539"
+            ><Mail size={15} className="shrink-0 text-[#2DD4BF]" /> geral@dianagarcia.pt</a>
+            <a href="tel:+351911816539"
               className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm text-slate-300 transition-colors hover:bg-white/5 hover:text-white"
-            >
-              <Phone size={15} className="shrink-0 text-[#2DD4BF]" />
-              +351 911 816 539
-            </a>
-
+            ><Phone size={15} className="shrink-0 text-[#2DD4BF]" /> +351 911 816 539</a>
             <div className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm text-slate-300">
-              <MapPin size={15} className="shrink-0 text-[#2DD4BF]" />
-              Viana do Castelo, Portugal
+              <MapPin size={15} className="shrink-0 text-[#2DD4BF]" /> Viana do Castelo, Portugal
             </div>
           </div>
-
           <p className="mt-4 text-xs text-slate-500">
             A nossa equipa responde de segunda a sexta, mas a Sofía está disponível 24/7.
           </p>

@@ -101,6 +101,23 @@ interface HourInput {
   is_closed: boolean;
 }
 
+/** Appointment con service_index en lugar de service_id (se resuelve tras crear los servicios) */
+interface ApptInput {
+  client_name: string;
+  client_phone: string;
+  service_index: number; // índice en el array de services
+  date: string;          // YYYY-MM-DD
+  time: string;          // HH:MM
+}
+
+function addMinutes(date: string, time: string, minutes: number): string {
+  const [h, m] = time.split(":").map(Number);
+  const total = h * 60 + m + minutes;
+  const eh = Math.floor(total / 60) % 24;
+  const em = total % 60;
+  return `${date}T${String(eh).padStart(2, "0")}:${String(em).padStart(2, "0")}:00`;
+}
+
 export async function POST(req: NextRequest) {
   const { businessId, professionalId: ownerProfId, role } = await getAuthContext();
   if (!businessId) return unauthorizedJson();
@@ -109,11 +126,12 @@ export async function POST(req: NextRequest) {
   const body = await req.json().catch(() => null);
   if (!body) return NextResponse.json({ error: "Pedido inválido." }, { status: 400 });
 
-  const { name, email, services, hours } = body as {
+  const { name, email, services, hours, appointments } = body as {
     name?: string;
     email?: string;
     services?: ServiceInput[];
     hours?: HourInput[];
+    appointments?: ApptInput[];
   };
 
   // Validaciones básicas
@@ -225,6 +243,57 @@ export async function POST(req: NextRequest) {
     await db.from("services").delete().eq("professional_id", collabId);
     await db.from("professionals").delete().eq("id", collabId);
     return NextResponse.json({ error: "Erro ao guardar horários." }, { status: 500 });
+  }
+
+  // ── Crear appointments iniciales si los proporcionaron ──────────────────
+  if (Array.isArray(appointments) && appointments.length > 0) {
+    // Leer los servicios recién creados para mapear índice → id
+    const { data: createdSvcs } = await db
+      .from("services")
+      .select("id, name, duration_minutes, price")
+      .eq("business_id", businessId)
+      .eq("professional_id", collabId);
+
+    const svcList = createdSvcs ?? [];
+
+    for (const appt of appointments) {
+      if (!appt.client_name?.trim() || !appt.client_phone?.trim() || !appt.date || !appt.time) continue;
+      const svc = svcList[appt.service_index];
+      if (!svc) continue;
+
+      const phone = appt.client_phone.trim();
+      const { data: existing } = await db
+        .from("clients")
+        .select("id")
+        .eq("business_id", businessId)
+        .eq("phone", phone)
+        .maybeSingle();
+
+      let clientId = existing?.id as string | undefined;
+      if (!clientId) {
+        const { data: newClient } = await db
+          .from("clients")
+          .insert({ business_id: businessId, name: appt.client_name.trim(), phone, total_appointments: 0, total_spent: 0 })
+          .select("id")
+          .single();
+        clientId = newClient?.id;
+      }
+      if (!clientId) continue;
+
+      const starts_at = `${appt.date}T${appt.time}:00`;
+      const ends_at   = addMinutes(appt.date, appt.time, svc.duration_minutes);
+
+      await db.from("appointments").insert({
+        business_id:     businessId,
+        professional_id: collabId,
+        client_id:       clientId,
+        service_id:      svc.id,
+        starts_at,
+        ends_at,
+        status: "pendente",
+        price:  svc.price,
+      });
+    }
   }
 
   // ── Generar available_slots para la colaboradora (silencioso si falla) ──

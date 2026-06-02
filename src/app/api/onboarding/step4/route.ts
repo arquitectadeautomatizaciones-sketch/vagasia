@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-import { getAuthBusinessId, unauthorizedJson } from "@/lib/api-auth";
+import { getAuthContext, unauthorizedJson } from "@/lib/api-auth";
 
 function admin() {
   return createClient(
@@ -27,7 +27,7 @@ function addMinutes(date: string, time: string, minutes: number): string {
 }
 
 export async function POST(req: NextRequest) {
-  const businessId = await getAuthBusinessId();
+  const { businessId, professionalId } = await getAuthContext();
   if (!businessId) return unauthorizedJson();
 
   const { appointments } = await req.json() as { appointments: ApptInput[] };
@@ -74,13 +74,14 @@ export async function POST(req: NextRequest) {
     const ends_at = addMinutes(appt.date, appt.time, service.duration_minutes);
 
     await db.from("appointments").insert({
-      business_id: businessId,
-      client_id: clientId,
-      service_id: appt.service_id,
+      business_id:     businessId,
+      professional_id: professionalId,
+      client_id:       clientId,
+      service_id:      appt.service_id,
       starts_at,
       ends_at,
       status: "pendente",
-      price: service.price,
+      price:  service.price,
     });
 
     created++;
