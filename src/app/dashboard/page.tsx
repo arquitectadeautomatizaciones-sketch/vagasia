@@ -118,12 +118,12 @@ export default async function DashboardPage() {
     },
   ];
 
-  // Cast appointments to match DashboardAgenda's expected shape
-  const appointments = today as Array<{
-    id: string; starts_at: string; ends_at: string; status: string;
-    price: number; professional_id?: string | null;
-    client: { name: string } | null; service: { name: string } | null;
-  }>;
+  // Normalize appointments: Supabase returns joined rows as arrays, DashboardAgenda expects objects
+  const appointments = (today as any[]).map(apt => ({
+    ...apt,
+    client:  Array.isArray(apt.client)  ? apt.client[0]  ?? null : apt.client,
+    service: Array.isArray(apt.service) ? apt.service[0] ?? null : apt.service,
+  }));
 
   return (
     <AppLayout>
