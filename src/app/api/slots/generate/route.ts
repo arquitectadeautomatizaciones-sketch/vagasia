@@ -11,7 +11,7 @@
  */
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-import { getAuthBusinessId, unauthorizedJson } from "@/lib/api-auth";
+import { getAuthContext, unauthorizedJson } from "@/lib/api-auth";
 import { generateSlotsForBusiness } from "@/lib/generate-slots";
 
 function adminDb() {
@@ -23,7 +23,7 @@ function adminDb() {
 }
 
 export async function POST(req: NextRequest) {
-  const businessId = await getAuthBusinessId();
+  const { businessId, professionalId } = await getAuthContext();
   if (!businessId) return unauthorizedJson();
 
   // Weeks opcional: entre 1 y 12
@@ -37,7 +37,7 @@ export async function POST(req: NextRequest) {
     // ignorar — usamos el default
   }
 
-  const result = await generateSlotsForBusiness(businessId, adminDb(), weeks);
+  const result = await generateSlotsForBusiness(businessId, adminDb(), weeks, professionalId ?? undefined);
 
   if (result.error) {
     return NextResponse.json({ error: result.error }, { status: 500 });

@@ -51,7 +51,8 @@ export async function POST() {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return unauthorizedJson();
 
-  const businessId = user.app_metadata?.business_id as string | undefined;
+  const businessId     = user.app_metadata?.business_id     as string | undefined;
+  const professionalId = user.app_metadata?.professional_id as string | undefined;
   if (!businessId) return unauthorizedJson();
 
   const trialStartedAt = new Date().toISOString();
@@ -79,7 +80,7 @@ export async function POST() {
 
   // 2. Generar available_slots para las próximas 4 semanas (silencioso si falla)
   try {
-    const slotResult = await generateSlotsForBusiness(businessId, db, 4);
+    const slotResult = await generateSlotsForBusiness(businessId, db, 4, professionalId);
     if (slotResult.error) {
       console.error("[onboarding/complete] Error al generar slots:", slotResult.error);
     } else {

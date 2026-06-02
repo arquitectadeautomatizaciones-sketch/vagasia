@@ -1,5 +1,27 @@
 export type AppointmentStatus = "confirmada" | "pendente" | "cancelada";
 
+export type ProfessionalRole = "owner" | "collaborator";
+
+export interface Professional {
+  id: string;
+  business_id: string;
+  user_id: string | null;
+  name: string;
+  role: ProfessionalRole;
+  is_active: boolean;
+  created_at: string;
+}
+
+export interface TeamInvitation {
+  id: string;
+  business_id: string;
+  professional_id: string;
+  email: string;
+  token: string;
+  status: "pending" | "accepted";
+  created_at: string;
+}
+
 export interface Business {
   id: string;
   auth_user_id: string | null;
@@ -19,6 +41,7 @@ export interface Business {
 export interface Service {
   id: string;
   business_id: string;
+  professional_id: string;
   name: string;
   duration_minutes: number;
   price: number;
@@ -44,6 +67,7 @@ export interface Client {
 export interface Appointment {
   id: string;
   business_id: string;
+  professional_id: string;
   client_id: string;
   service_id: string;
   starts_at: string;
@@ -54,6 +78,7 @@ export interface Appointment {
   created_at: string;
   client?: Client;
   service?: Service;
+  professional?: Pick<Professional, "id" | "name">;
 }
 
 export interface WaitingListEntry {
@@ -74,6 +99,7 @@ export interface WaitingListEntry {
 export interface BusinessHours {
   id: string;
   business_id: string;
+  professional_id: string;
   day_of_week: number;
   open_time: string;
   close_time: string;
@@ -97,6 +123,7 @@ export type SlotStatus = "disponivel" | "reservada" | "cancelada";
 export interface AvailableSlot {
   id: string;
   business_id: string;
+  professional_id: string;
   date: string; // "YYYY-MM-DD"
   start_time: string; // "HH:MM"
   end_time: string; // "HH:MM"
@@ -105,6 +132,7 @@ export interface AvailableSlot {
   notes: string | null;
   created_at: string;
   service?: Service;
+  professional?: Pick<Professional, "id" | "name">;
 }
 
 export interface LoyaltyCard {
@@ -163,6 +191,8 @@ export type Database = {
       };
       services: { Row: Service; Insert: Omit<Service, "id">; Update: Partial<Service> };
       clients: { Row: Client; Insert: Omit<Client, "id" | "created_at">; Update: Partial<Client> };
+      professionals: { Row: Professional; Insert: Omit<Professional, "id" | "created_at">; Update: Partial<Professional> };
+      team_invitations: { Row: TeamInvitation; Insert: Omit<TeamInvitation, "id" | "created_at">; Update: Partial<TeamInvitation> };
       appointments: { Row: Appointment; Insert: Omit<Appointment, "id" | "created_at">; Update: Partial<Appointment> };
       waiting_list: { Row: WaitingListEntry; Insert: Omit<WaitingListEntry, "id" | "created_at">; Update: Partial<WaitingListEntry> };
       business_hours: { Row: BusinessHours; Insert: Omit<BusinessHours, "id">; Update: Partial<BusinessHours> };

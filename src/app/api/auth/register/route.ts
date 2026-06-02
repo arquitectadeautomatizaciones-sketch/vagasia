@@ -78,13 +78,35 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Erro ao criar negócio. Tente novamente." }, { status: 500 });
   }
 
-  // 3. Guardar business_id no app_metadata — sem queries extras nos pedidos futuros
+  // 3. Criar professional owner para este negócio
+  const { data: professional, error: profError } = await admin
+    .from("professionals")
+    .insert({
+      business_id: business.id,
+      user_id: userId,
+      name: name.trim(),
+      role: "owner",
+      is_active: true,
+    })
+    .select("id")
+    .single();
+
+  if (profError || !professional) {
+    // Rollback: eliminar business e utilizador criados
+    await admin.from("businesses").delete().eq("id", business.id);
+    await admin.auth.admin.deleteUser(userId);
+    return NextResponse.json({ error: "Erro ao criar perfil profissional." }, { status: 500 });
+  }
+
+  // 4. Guardar business_id, professional_id e role no app_metadata
   // is_active=false até o utilizador subscrever via Stripe
   await admin.auth.admin.updateUserById(userId, {
     app_metadata: {
-      business_id: business.id,
-      business_name: business.name,
-      is_active: false,
+      business_id:     business.id,
+      business_name:   business.name,
+      professional_id: professional.id,
+      role:            "owner",
+      is_active:       false,
     },
   });
 
