@@ -1,67 +1,85 @@
 import { createSupabaseAdminClient } from "@/utils/supabase/admin";
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { getAuthBusinessId, unauthorizedJson } from "@/lib/api-auth";
 
-async function sendCardCompleteWhatsApp({
-  clientPhone,
-  clientName,
-  businessName,
-  reward,
-}: {
-  clientPhone: string;
-  clientName: string;
-  businessName: string;
-  reward: string;
-}) {
-  const phoneNumberId = process.env.META_WA_PHONE_NUMBER_ID;
-  const token = process.env.META_WA_TOKEN;
+// ── Tipos do select com joins ─────────────────────────────────────────────────
+// O select de loyalty_cards com joins (client/business) faz o type-inference do
+// Supabase devolver GenericStringError; tipamos explicitamente a forma da linha.
+type JoinedClient = { name: string | null; phone: string | null };
+type JoinedBusiness = { name: string | null; zapi_instance_url: string | null };
 
-  if (!phoneNumberId || !token) {
-    console.warn("[fidelizacao] META_WA_PHONE_NUMBER_ID ou META_WA_TOKEN não configurados.");
-    return;
-  }
+interface LoyaltyCardRow {
+  id: string;
+  total_stamps: number;
+  goal: number;
+  reward: string | null;
+  business_id: string;
+  client_id: string;
+  client: JoinedClient | JoinedClient[] | null;
+  business: JoinedBusiness | JoinedBusiness[] | null;
+}
 
-  // Remove tudo excepto dígitos ("+351 912 345 678" → "351912345678")
-  const to = clientPhone.replace(/\D/g, "");
+// Normaliza uma relação to-one que o Supabase pode devolver como objeto ou array.
+function firstRelation<T>(rel: T | T[] | null): T | null {
+  if (Array.isArray(rel)) return rel[0] ?? null;
+  return rel ?? null;
+}
 
-  const res = await fetch(
-    `https://graph.facebook.com/v20.0/${phoneNumberId}/messages`,
-    {
+// ── Z-API helpers ─────────────────────────────────────────────────────────────
+
+async function sendZapiText(zapiInstanceUrl: string, phone: string, message: string) {
+  const url = `${zapiInstanceUrl}/send-text`;
+  const clientToken = process.env.ZAPI_CLIENT_TOKEN ?? "F17031739653947e4a7202c19bff1d7a5S";
+  try {
+    await fetch(url, {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${token}`,
         "Content-Type": "application/json",
+        "Client-Token": clientToken,
       },
-      body: JSON.stringify({
-        messaging_product: "whatsapp",
-        to,
-        type: "template",
-        template: {
-          name: "vagasia_cartao_completo",
-          language: { code: "pt_PT" },
-          components: [
-            {
-              type: "body",
-              parameters: [
-                { type: "text", text: clientName },
-                { type: "text", text: businessName },
-                { type: "text", text: reward },
-              ],
-            },
-          ],
-        },
-      }),
-    }
-  );
-
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    console.error("[fidelizacao] Erro WhatsApp API:", JSON.stringify(err));
+      body: JSON.stringify({ phone: phone.replace(/\D/g, ""), message }),
+    });
+  } catch (err) {
+    console.error("[fidelizacao] Erro ao enviar Z-API:", err);
   }
 }
 
+/**
+ * Envia mensagem de progresso ou cartão completo via Z-API.
+ * fire-and-forget — não bloqueia a resposta.
+ */
+async function sendFidelizacaoWhatsApp({
+  zapiInstanceUrl,
+  clientPhone,
+  clientName,
+  businessName,
+  totalStamps,
+  goal,
+  reward,
+  completed,
+}: {
+  zapiInstanceUrl: string;
+  clientPhone: string;
+  clientName: string;
+  businessName: string;
+  totalStamps: number; // novo valor já incrementado
+  goal: number;
+  reward: string;
+  completed: boolean;
+}) {
+  if (!zapiInstanceUrl || !clientPhone) return;
+
+  const message = completed
+    ? `🎉 Parabéns ${clientName}! Completaste o teu cartão de fidelidade na ${businessName}! Tens direito a: ${reward}. Apresenta esta mensagem na tua próxima visita. Válido por 30 dias. 💚`
+    : `⭐ Olá ${clientName}! Obrigada pela tua visita. Já tens ${totalStamps} de ${goal} carimbos no teu cartão de fidelidade da ${businessName}. ${goal - totalStamps} visitinha${goal - totalStamps !== 1 ? "s" : ""} para ganhares: ${reward}! 💚`;
+
+  await sendZapiText(zapiInstanceUrl, clientPhone, message);
+}
+
+// ── PATCH handler ─────────────────────────────────────────────────────────────
+
 export async function PATCH(
-  request: Request,
+  request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params;
@@ -73,12 +91,19 @@ export async function PATCH(
 
   const db = createSupabaseAdminClient();
 
-  const { data: card } = await db
+  // Fetch the card + client phone + business zapi url in one query
+  const { data: cardRaw } = await db
     .from("loyalty_cards")
-    .select("id, total_stamps, goal, reward")
+    .select(
+      "id, total_stamps, goal, reward, business_id, client_id, " +
+      "client:client_id(name, phone), " +
+      "business:business_id(name, zapi_instance_url)"
+    )
     .eq("id", id)
     .eq("business_id", businessId)
     .single();
+
+  const card = cardRaw as unknown as LoyaltyCardRow | null;
 
   if (!card) {
     return NextResponse.json({ error: "Cartão não encontrado." }, { status: 404 });
@@ -94,44 +119,54 @@ export async function PATCH(
       );
     }
     update.total_stamps = card.total_stamps + 1;
+
   } else if (action === "reset") {
     update.total_stamps = 0;
+
   } else {
+    // Edit mode: update reward and/or goal
     if (reward !== undefined) update.reward = reward?.trim() || null;
-    if (goal !== undefined) update.goal = Math.max(1, Number(goal));
+    if (goal   !== undefined) update.goal   = Math.max(1, Number(goal));
   }
 
   const { data, error } = await db
     .from("loyalty_cards")
     .update(update)
     .eq("id", id)
-    .select("*, client:client_id(name, phone)")
+    .select(
+      "*, " +
+      "client:client_id(name, phone), " +
+      "business:business_id(name, zapi_instance_url)"
+    )
     .single();
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
-  // Enviar WhatsApp se este carimbo completou o cartão
-  const justCompleted =
-    action === "stamp" && (card.total_stamps + 1) >= card.goal;
+  // ── WhatsApp notification on stamp ──────────────────────────────────────────
+  if (action === "stamp") {
+    const newTotal     = card.total_stamps + 1;
+    const completed    = newTotal >= card.goal;
+    const rewardText   = card.reward ?? "recompensa especial";
+    const client       = firstRelation(card.client);
+    const business     = firstRelation(card.business);
 
-  if (justCompleted) {
-    const client = data.client as { name: string; phone: string } | null;
-
-    const { data: business } = await db
-      .from("businesses")
-      .select("name")
-      .eq("id", businessId)
-      .single();
-
-    if (client?.phone && business?.name) {
-      sendCardCompleteWhatsApp({
-        clientPhone: client.phone,
-        clientName: client.name,
-        businessName: business.name,
-        reward: card.reward ?? "recompensa especial",
-      }).catch((err) => console.error("[fidelizacao] Falha ao enviar WhatsApp:", err));
+    if (client?.phone && business?.zapi_instance_url) {
+      sendFidelizacaoWhatsApp({
+        zapiInstanceUrl: business.zapi_instance_url,
+        clientPhone:     client.phone,
+        clientName:      client.name  || "cliente",
+        businessName:    business.name || "o negócio",
+        totalStamps:     newTotal,
+        goal:            card.goal,
+        reward:          rewardText,
+        completed,
+      }).catch((err) => console.error("[fidelizacao] WhatsApp falhou:", err));
     }
   }
 
-  return NextResponse.json(data);
+  // Strip internal joins from response to keep the shape clean
+  const dataObj = (data ?? {}) as unknown as Record<string, unknown> & { business?: unknown };
+  const { business: _b, ...safeData } = dataObj;
+  void _b;
+  return NextResponse.json(safeData);
 }

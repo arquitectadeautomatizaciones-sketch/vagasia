@@ -471,6 +471,10 @@ export default function ConfiguracoesPage() {
   const [waCheckbox, setWaCheckbox] = useState(false);
   const [waSaving, setWaSaving] = useState(false);
   const [waSaved, setWaSaved] = useState(false);
+  // Fidelização (só visível para owner)
+  const [role, setRole] = useState<"owner" | "collaborator">("collaborator");
+  const [loyaltyEnabled, setLoyaltyEnabled] = useState(false);
+  const [loyaltySaving, setLoyaltySaving] = useState(false);
   const logoInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -487,9 +491,30 @@ export default function ConfiguracoesPage() {
         }
         setWhatsappNumber(data.whatsapp_number ?? null);
         setWhatsappAccepted(!!data.whatsapp_accepted);
+        setLoyaltyEnabled(!!data.loyalty_enabled);
+        if (data.role === "owner" || data.role === "collaborator") setRole(data.role);
       })
       .catch(() => {});
   }, []);
+
+  async function handleLoyaltyToggle() {
+    if (loyaltySaving) return;
+    const next = !loyaltyEnabled;
+    setLoyaltySaving(true);
+    setLoyaltyEnabled(next); // otimista
+    try {
+      const res = await fetch("/api/business", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ loyalty_enabled: next }),
+      });
+      if (!res.ok) setLoyaltyEnabled(!next); // reverter em caso de erro
+    } catch {
+      setLoyaltyEnabled(!next);
+    } finally {
+      setLoyaltySaving(false);
+    }
+  }
 
   async function handleWaConfirm() {
     if (!waCheckbox || waSaving) return;
@@ -643,6 +668,7 @@ export default function ConfiguracoesPage() {
           <div className="flex-1 min-w-0">
             {/* Perfil */}
             {tab === "perfil" && (
+              <div className="space-y-5">
               <div className="rounded-xl border border-white/5 bg-[#1E293B] p-6 space-y-5">
                 <h2 className="text-sm font-semibold text-white">Perfil do Negócio</h2>
 
@@ -698,6 +724,42 @@ export default function ConfiguracoesPage() {
                   </div>
                 </div>
                 <SaveButton onSave={handleSave} saved={saved} />
+              </div>
+
+              {/* Programa de Fidelização — só owner */}
+              {role === "owner" && (
+                <div className="rounded-xl border border-white/5 bg-[#1E293B] p-6 space-y-4">
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="space-y-1.5">
+                      <h2 className="text-sm font-semibold text-white">🎁 Programa de Fidelização</h2>
+                      <p className="text-xs text-slate-400 leading-relaxed">
+                        Recompensa os teus clientes mais fiéis automaticamente. Ativa esta funcionalidade para que o sistema registe automaticamente os serviços de cada cliente e envie mensagens de progresso por WhatsApp.
+                      </p>
+                    </div>
+                    <button
+                      role="switch"
+                      aria-checked={loyaltyEnabled}
+                      aria-label="Ativar Programa de Fidelização"
+                      onClick={handleLoyaltyToggle}
+                      disabled={loyaltySaving}
+                      className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors disabled:opacity-60 ${
+                        loyaltyEnabled ? "bg-[#00B4D8]" : "bg-slate-600"
+                      }`}
+                    >
+                      <span
+                        className={`inline-block h-5 w-5 transform rounded-full bg-white transition-transform ${
+                          loyaltyEnabled ? "translate-x-5" : "translate-x-0.5"
+                        }`}
+                      />
+                    </button>
+                  </div>
+                  {loyaltyEnabled && (
+                    <p className="rounded-lg bg-[#2DD4BF]/10 px-3 py-2 text-xs text-[#2DD4BF]">
+                      ✅ Ativo — Os carimbos são registados automaticamente após cada visita confirmada.
+                    </p>
+                  )}
+                </div>
+              )}
               </div>
             )}
 
