@@ -522,6 +522,13 @@ export default function ConfiguracoesPage() {
   const [saved, setSaved] = useState(false);
   const [hours, setHours] = useState(defaultHours);
 
+  // Horários — estado real
+  const [myProfessionalId, setMyProfessionalId] = useState<string | null>(null);
+  const [hoursLoading, setHoursLoading] = useState(false);
+  const [hoursSaving, setHoursSaving] = useState(false);
+  const [hoursError, setHoursError] = useState<string | null>(null);
+  const [hoursSuccess, setHoursSuccess] = useState(false);
+
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
   const [logoUploading, setLogoUploading] = useState(false);
   const [logoError, setLogoError] = useState<string | null>(null);
@@ -555,9 +562,35 @@ export default function ConfiguracoesPage() {
         setWhatsappAccepted(!!data.whatsapp_accepted);
         setLoyaltyEnabled(!!data.loyalty_enabled);
         if (data.role === "owner" || data.role === "collaborator") setRole(data.role);
+        if (data.professional_id) setMyProfessionalId(data.professional_id);
       })
       .catch(() => {});
   }, []);
+
+  // Carregar horários reais quando o professionalId estiver disponível
+  useEffect(() => {
+    if (!myProfessionalId) return;
+    setHoursLoading(true);
+    fetch(`/api/team/hours/${myProfessionalId}`)
+      .then((r) => r.json())
+      .then((data: { day_of_week: number; open_time: string; close_time: string; is_closed: boolean }[]) => {
+        if (!Array.isArray(data) || data.length === 0) return; // manter defaults
+        setHours(
+          DAYS_FULL.map((day, i) => {
+            const row = data.find((d) => d.day_of_week === i);
+            if (!row) return { day, open: false, start: "09:00", end: "19:00" };
+            return {
+              day,
+              open: !row.is_closed,
+              start: row.open_time.slice(0, 5),
+              end: row.close_time.slice(0, 5),
+            };
+          })
+        );
+      })
+      .catch(() => {}) // em caso de erro: manter defaults
+      .finally(() => setHoursLoading(false));
+  }, [myProfessionalId]);
 
   async function handleLoyaltyToggle() {
     if (loyaltySaving) return;
@@ -642,6 +675,50 @@ export default function ConfiguracoesPage() {
   const handleSave = () => {
     setSaved(true);
     setTimeout(() => setSaved(false), 2500);
+  };
+
+  const handleSaveHours = async () => {
+    if (!myProfessionalId || hoursSaving || hoursLoading) return;
+    setHoursSaving(true);
+    setHoursError(null);
+    setHoursSuccess(false);
+    try {
+      // 1. Guardar horários
+      const resHours = await fetch(`/api/team/hours/${myProfessionalId}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          hours: hours.map((h, i) => ({
+            day_of_week: i,
+            open_time: h.start,
+            close_time: h.end,
+            is_closed: !h.open,
+          })),
+        }),
+      });
+      if (!resHours.ok) {
+        const err = await resHours.json().catch(() => ({}));
+        throw new Error((err as { error?: string }).error ?? "Erro ao guardar os horários.");
+      }
+
+      // 2. Regenerar slots das próximas 4 semanas
+      const resSlots = await fetch("/api/slots/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ weeks: 4 }),
+      });
+      if (!resSlots.ok) {
+        const err = await resSlots.json().catch(() => ({}));
+        throw new Error((err as { error?: string }).error ?? "Erro ao regenerar as vagas.");
+      }
+
+      setHoursSuccess(true);
+      setTimeout(() => setHoursSuccess(false), 4000);
+    } catch (err) {
+      setHoursError((err as Error).message);
+    } finally {
+      setHoursSaving(false);
+    }
   };
 
   const handleSaveServices = async () => {
@@ -965,29 +1042,73 @@ export default function ConfiguracoesPage() {
                     Define os teus horários habituais. Para exceções pontuais, usa o separador Disponibilidade.
                   </p>
                 </div>
-                <div className="space-y-2">
-                  {hours.map((h, i) => (
-                    <div key={h.day} className="flex items-center gap-4 rounded-lg bg-[#0F172A] px-4 py-3">
-                      <button
-                        onClick={() => toggleDay(i)}
-                        className={`relative flex h-5 w-9 shrink-0 items-center rounded-full transition-colors ${h.open ? "bg-[#00B4D8]" : "bg-white/10"}`}
-                      >
-                        <span className={`absolute h-3.5 w-3.5 rounded-full bg-white transition-transform ${h.open ? "translate-x-4" : "translate-x-1"}`} />
-                      </button>
-                      <p className="w-32 text-sm text-slate-300">{h.day}</p>
-                      {h.open ? (
-                        <div className="flex items-center gap-2">
-                          <input type="time" value={h.start} onChange={(e) => updateHour(i, "start", e.target.value)} className="rounded border border-white/10 bg-[#1E293B] px-2 py-1 text-xs text-white outline-none" />
-                          <span className="text-slate-600 text-xs">até</span>
-                          <input type="time" value={h.end} onChange={(e) => updateHour(i, "end", e.target.value)} className="rounded border border-white/10 bg-[#1E293B] px-2 py-1 text-xs text-white outline-none" />
-                        </div>
-                      ) : (
-                        <span className="text-xs text-slate-600">Fechado</span>
-                      )}
-                    </div>
-                  ))}
+
+                {/* Spinner de carregamento inicial */}
+                {hoursLoading ? (
+                  <div className="flex items-center gap-2 py-4 text-slate-500 text-sm">
+                    <Loader2 size={16} className="animate-spin" />
+                    A carregar os teus horários…
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {hours.map((h, i) => (
+                      <div key={h.day} className="flex items-center gap-4 rounded-lg bg-[#0F172A] px-4 py-3">
+                        <button
+                          onClick={() => toggleDay(i)}
+                          disabled={hoursSaving}
+                          className={`relative flex h-5 w-9 shrink-0 items-center rounded-full transition-colors ${h.open ? "bg-[#00B4D8]" : "bg-white/10"} disabled:opacity-50`}
+                        >
+                          <span className={`absolute h-3.5 w-3.5 rounded-full bg-white transition-transform ${h.open ? "translate-x-4" : "translate-x-1"}`} />
+                        </button>
+                        <p className="w-32 text-sm text-slate-300">{h.day}</p>
+                        {h.open ? (
+                          <div className="flex items-center gap-2">
+                            <input
+                              type="time"
+                              value={h.start}
+                              disabled={hoursSaving}
+                              onChange={(e) => updateHour(i, "start", e.target.value)}
+                              className="rounded border border-white/10 bg-[#1E293B] px-2 py-1 text-xs text-white outline-none disabled:opacity-50"
+                            />
+                            <span className="text-slate-600 text-xs">até</span>
+                            <input
+                              type="time"
+                              value={h.end}
+                              disabled={hoursSaving}
+                              onChange={(e) => updateHour(i, "end", e.target.value)}
+                              className="rounded border border-white/10 bg-[#1E293B] px-2 py-1 text-xs text-white outline-none disabled:opacity-50"
+                            />
+                          </div>
+                        ) : (
+                          <span className="text-xs text-slate-600">Fechado</span>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Feedback */}
+                {hoursError && (
+                  <p className="text-xs text-red-400">{hoursError}</p>
+                )}
+                {hoursSuccess && (
+                  <p className="text-xs text-[#2DD4BF] font-medium">Horários guardados e vagas atualizadas! ✅</p>
+                )}
+
+                {/* Botão Guardar */}
+                <div className="flex justify-end pt-1">
+                  <button
+                    onClick={handleSaveHours}
+                    disabled={hoursSaving || hoursLoading || !myProfessionalId}
+                    className="flex items-center gap-2 rounded-lg bg-[#00B4D8] px-4 py-2 text-sm font-medium text-white hover:bg-[#0090b0] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  >
+                    {hoursSaving ? (
+                      <><Loader2 size={14} className="animate-spin" /> A guardar…</>
+                    ) : (
+                      "Guardar horários"
+                    )}
+                  </button>
                 </div>
-                <SaveButton onSave={handleSave} saved={saved} />
               </div>
             )}
 

@@ -32,7 +32,7 @@ export async function GET() {
     }
   }
 
-  return NextResponse.json({ ...data, role });
+  return NextResponse.json({ ...data, role, professional_id: professionalId ?? null });
 }
 
 export async function PATCH(request: Request) {
