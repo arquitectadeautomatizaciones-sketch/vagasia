@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from "react";
 import Image from "next/image";
 import AppLayout from "@/components/AppLayout";
 import type { Client, Appointment } from "@/lib/types";
-import { Search, Plus, ChevronRight, Phone, Mail, CalendarDays, Loader2, Cake, Camera, Upload } from "lucide-react";
+import { Search, Plus, ChevronRight, Phone, Mail, CalendarDays, Loader2, Cake, Camera, Upload, Download } from "lucide-react";
 import { parseCsv, type ParsedClient } from "@/lib/csv";
 
 function isBirthdayToday(dataNascimento: string | null | undefined): boolean {
@@ -582,6 +582,7 @@ export default function ClientesPage() {
   const [selected, setSelected] = useState<Client | null>(null);
   const [showNewModal, setShowNewModal] = useState(false);
   const [showImportModal, setShowImportModal] = useState(false);
+  const [exporting, setExporting] = useState(false);
 
   useEffect(() => {
     fetch("/api/clients")
@@ -635,6 +636,31 @@ export default function ClientesPage() {
             </p>
           </div>
           <div className="flex items-center gap-2">
+            <button
+              onClick={async () => {
+                setExporting(true);
+                try {
+                  const res = await fetch("/api/export");
+                  if (!res.ok) return;
+                  const blob = await res.blob();
+                  const cd   = res.headers.get("Content-Disposition") ?? "";
+                  const match = cd.match(/filename="?([^"]+)"?/);
+                  const name  = match?.[1] ?? "vagasia-dados.zip";
+                  const url   = URL.createObjectURL(blob);
+                  const a     = document.createElement("a");
+                  a.href = url; a.download = name; a.click();
+                  URL.revokeObjectURL(url);
+                } finally {
+                  setExporting(false);
+                }
+              }}
+              disabled={exporting}
+              className="flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-xs font-medium text-slate-400 hover:text-slate-200 hover:bg-white/10 disabled:opacity-50 transition-colors"
+              title="Exportar todos os dados"
+            >
+              {exporting ? <Loader2 size={13} className="animate-spin" /> : <Download size={13} />}
+              Exportar
+            </button>
             <button
               onClick={() => setShowImportModal(true)}
               className="flex items-center gap-2 rounded-lg border border-white/10 bg-white/5 px-4 py-2 text-sm font-medium text-slate-300 hover:text-white hover:bg-white/10 transition-colors"

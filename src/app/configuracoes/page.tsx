@@ -25,6 +25,8 @@ import {
   Ban,
   CalendarPlus,
   X,
+  Download,
+  Loader2,
 } from "lucide-react";
 
 type Tab = "perfil" | "servicos" | "horarios" | "disponibilidade" | "whatsapp";
@@ -453,6 +455,66 @@ function DisponibilidadeTab() {
   );
 }
 
+/* ─── Export card ─── */
+
+function ExportCard() {
+  const [loading, setLoading] = useState(false);
+  const [error, setError]     = useState<string | null>(null);
+
+  async function handleExport() {
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/export");
+      if (!res.ok) { setError("Erro ao exportar. Tenta novamente."); return; }
+      const blob = await res.blob();
+      const cd   = res.headers.get("Content-Disposition") ?? "";
+      const match = cd.match(/filename="?([^"]+)"?/);
+      const name  = match?.[1] ?? "vagasia-dados.zip";
+      const url   = URL.createObjectURL(blob);
+      const a     = document.createElement("a");
+      a.href = url; a.download = name; a.click();
+      URL.revokeObjectURL(url);
+    } catch {
+      setError("Erro ao exportar. Tenta novamente.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <div className="rounded-xl border border-white/5 bg-[#1E293B] p-6 space-y-4">
+      <h2 className="text-sm font-semibold text-white">Dados e Privacidade</h2>
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between rounded-lg bg-[#0F172A] p-4">
+        <div className="space-y-1">
+          <div className="flex items-center gap-2">
+            <span className="text-base">📦</span>
+            <p className="text-sm font-medium text-white">Exportar os teus dados</p>
+          </div>
+          <p className="text-xs text-slate-400 leading-relaxed max-w-sm">
+            Os teus dados são teus. Exporta toda a tua base de clientes, marcações,
+            serviços e histórico financeiro num ficheiro ZIP com folhas de cálculo.
+          </p>
+        </div>
+        <div className="shrink-0">
+          <button
+            onClick={handleExport}
+            disabled={loading}
+            className="flex items-center gap-2 rounded-lg bg-[#00B4D8] px-4 py-2.5 text-sm font-medium text-white hover:bg-[#0090b0] disabled:opacity-50 transition-colors whitespace-nowrap"
+          >
+            {loading ? (
+              <><Loader2 size={14} className="animate-spin" /> A preparar os teus dados...</>
+            ) : (
+              <><Download size={14} /> Exportar tudo</>
+            )}
+          </button>
+        </div>
+      </div>
+      {error && <p className="text-xs text-red-400">{error}</p>}
+    </div>
+  );
+}
+
 /* ─── Main page ─── */
 
 export default function ConfiguracoesPage() {
@@ -760,6 +822,9 @@ export default function ConfiguracoesPage() {
                   )}
                 </div>
               )}
+
+              {/* Dados e Privacidade */}
+              <ExportCard />
               </div>
             )}
 
