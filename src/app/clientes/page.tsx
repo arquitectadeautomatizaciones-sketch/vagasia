@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from "react";
 import Image from "next/image";
 import AppLayout from "@/components/AppLayout";
 import type { Client, Appointment } from "@/lib/types";
-import { Search, Plus, ChevronRight, Phone, Mail, CalendarDays, Loader2, Cake, Camera } from "lucide-react";
+import { Search, Plus, ChevronRight, Phone, Mail, CalendarDays, Loader2, Cake, Camera, Upload } from "lucide-react";
 
 function isBirthdayToday(dataNascimento: string | null | undefined): boolean {
   if (!dataNascimento) return false;
@@ -121,6 +121,322 @@ function NewClientModal({ onClose, onCreated }: { onClose: () => void; onCreated
             </button>
           </div>
         </form>
+      </div>
+    </div>
+  );
+}
+
+// ── CSV helpers ──────────────────────────────────────────────────────────────
+
+interface ParsedClient {
+  name: string;
+  phone: string;
+  email?: string;
+  data_nascimento?: string;
+}
+
+function detectSeparator(firstLine: string): "," | ";" {
+  return (firstLine.match(/;/g) ?? []).length >= (firstLine.match(/,/g) ?? []).length ? ";" : ",";
+}
+
+function parseCsv(text: string): { clients: ParsedClient[]; errors: string[] } {
+  const lines = text.replace(/\r\n/g, "\n").replace(/\r/g, "\n").split("\n").filter(Boolean);
+  if (lines.length < 2) return { clients: [], errors: ["Ficheiro vazio ou sem dados."] };
+
+  const sep = detectSeparator(lines[0]);
+  const headers = lines[0].split(sep).map((h) => h.trim().toLowerCase().replace(/['"]/g, ""));
+
+  const nameIdx  = headers.findIndex((h) => h === "nome" || h === "name");
+  const phoneIdx = headers.findIndex((h) => h === "telefone" || h === "phone");
+  const emailIdx = headers.findIndex((h) => h === "email");
+  const birthIdx = headers.findIndex((h) => h === "data_nascimento" || h === "birthday");
+
+  if (nameIdx === -1 || phoneIdx === -1) {
+    return { clients: [], errors: ["Colunas obrigatórias não encontradas: nome, telefone."] };
+  }
+
+  const clients: ParsedClient[] = [];
+  const errors: string[] = [];
+
+  for (let i = 1; i < lines.length; i++) {
+    const cols = lines[i].split(sep).map((c) => c.trim().replace(/^["']|["']$/g, ""));
+    const name  = cols[nameIdx]  ?? "";
+    const phone = cols[phoneIdx] ?? "";
+    if (!name || !phone) {
+      errors.push(`Linha ${i + 1}: nome ou telefone em falta.`);
+      continue;
+    }
+    const client: ParsedClient = { name, phone };
+    if (emailIdx !== -1 && cols[emailIdx]) client.email = cols[emailIdx];
+    if (birthIdx !== -1 && cols[birthIdx]) client.data_nascimento = cols[birthIdx];
+    clients.push(client);
+  }
+
+  return { clients, errors };
+}
+
+// ── ImportCsvModal ────────────────────────────────────────────────────────────
+
+function ImportCsvModal({
+  onClose,
+  onImported,
+}: {
+  onClose: () => void;
+  onImported: (count: number) => void;
+}) {
+  const fileRef = useRef<HTMLInputElement>(null);
+  const [step, setStep] = useState<1 | 2 | 3>(1);
+  const [parsed, setParsed] = useState<ParsedClient[]>([]);
+  const [parseErrors, setParseErrors] = useState<string[]>([]);
+  const [fileName, setFileName] = useState("");
+  const [importing, setImporting] = useState(false);
+  const [result, setResult] = useState<{ imported: number; skipped: number; errors: string[] } | null>(null);
+  const [importError, setImportError] = useState<string | null>(null);
+
+  function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setFileName(file.name);
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const text = ev.target?.result as string;
+      const { clients, errors } = parseCsv(text);
+      setParsed(clients);
+      setParseErrors(errors);
+      if (clients.length > 0) setStep(2);
+      else setParseErrors((prev) => (prev.length ? prev : ["Nenhum cliente válido encontrado."]));
+    };
+    reader.readAsText(file, "UTF-8");
+  }
+
+  async function handleImport() {
+    setImporting(true);
+    setImportError(null);
+    try {
+      const res = await fetch("/api/clients/import", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ clients: parsed }),
+      });
+      const data = await res.json();
+      if (!res.ok) { setImportError(data.error ?? "Erro ao importar."); return; }
+      setResult(data);
+      setStep(3);
+      onImported(data.imported);
+    } catch {
+      setImportError("Erro de ligação. Tenta novamente.");
+    } finally {
+      setImporting(false);
+    }
+  }
+
+  const inputClass = "w-full rounded-lg border border-white/10 bg-[#0F172A] px-3.5 py-2.5 text-sm text-white placeholder-slate-600 outline-none focus:border-[#00B4D8]/50 transition-colors";
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-black/60" onClick={onClose} />
+      <div className="relative w-full max-w-lg rounded-2xl border border-white/10 bg-[#1E293B] p-6 space-y-5">
+
+        {/* Header */}
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-base font-semibold text-white">Importar CSV</h2>
+            <p className="text-xs text-slate-500 mt-0.5">
+              Passo {step} de 3 —{" "}
+              {step === 1 ? "Selecionar ficheiro" : step === 2 ? "Pré-visualização" : "Resultado"}
+            </p>
+          </div>
+          <button onClick={onClose} className="text-slate-500 hover:text-white text-xl leading-none">×</button>
+        </div>
+
+        {/* PASSO 1 — Selecionar ficheiro */}
+        {step === 1 && (
+          <div className="space-y-4">
+            {/* Formato */}
+            <div className="rounded-lg bg-[#0F172A] p-4 space-y-2">
+              <p className="text-xs font-semibold text-slate-300">Formato esperado</p>
+              <p className="text-[11px] text-slate-500 leading-relaxed">
+                Colunas aceites (separadas por <code className="text-slate-400">,</code> ou{" "}
+                <code className="text-slate-400">;</code>):
+              </p>
+              <div className="flex flex-wrap gap-1.5 mt-1">
+                {["nome *", "telefone *", "email", "data_nascimento"].map((col) => (
+                  <span
+                    key={col}
+                    className={`rounded px-2 py-0.5 text-[10px] font-mono ${
+                      col.includes("*")
+                        ? "bg-[#00B4D8]/15 text-[#00B4D8]"
+                        : "bg-white/5 text-slate-400"
+                    }`}
+                  >
+                    {col}
+                  </span>
+                ))}
+              </div>
+              <p className="text-[10px] text-slate-600 mt-1">
+                * Obrigatório. data_nascimento: formato YYYY-MM-DD
+              </p>
+            </div>
+
+            {/* Aviso WhatsApp */}
+            <div className="flex gap-3 rounded-lg border border-yellow-500/30 bg-yellow-500/10 p-3.5">
+              <span className="text-base leading-none">⚠️</span>
+              <p className="text-xs text-yellow-200 leading-relaxed">
+                Ao importar, cada cliente receberá automaticamente uma mensagem de boas-vindas
+                no WhatsApp com o teu número dedicado.
+              </p>
+            </div>
+
+            {/* Input ficheiro */}
+            <div
+              className="flex flex-col items-center justify-center gap-3 rounded-lg border-2 border-dashed border-white/10 bg-[#0F172A] py-8 cursor-pointer hover:border-[#00B4D8]/40 transition-colors"
+              onClick={() => fileRef.current?.click()}
+            >
+              <Upload size={22} className="text-slate-500" />
+              <div className="text-center">
+                <p className="text-sm text-slate-300">
+                  {fileName ? fileName : "Clica para selecionar o ficheiro CSV"}
+                </p>
+                <p className="text-xs text-slate-600 mt-0.5">Apenas ficheiros .csv</p>
+              </div>
+              <input
+                ref={fileRef}
+                type="file"
+                accept=".csv,text/csv"
+                className="hidden"
+                onChange={handleFile}
+              />
+            </div>
+
+            {parseErrors.length > 0 && (
+              <div className="space-y-1">
+                {parseErrors.map((e, i) => (
+                  <p key={i} className="text-xs text-red-400">{e}</p>
+                ))}
+              </div>
+            )}
+
+            <button
+              type="button"
+              onClick={onClose}
+              className="w-full rounded-lg border border-white/10 py-2.5 text-sm text-slate-400 hover:text-white hover:bg-white/5 transition-colors"
+            >
+              Cancelar
+            </button>
+          </div>
+        )}
+
+        {/* PASSO 2 — Pré-visualização */}
+        {step === 2 && (
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <p className="text-sm text-slate-300">
+                <span className="font-semibold text-white">{parsed.length}</span> clientes encontrados
+              </p>
+              <p className="text-xs text-slate-500">Mostrando os primeiros 5</p>
+            </div>
+
+            <div className="rounded-lg border border-white/5 overflow-hidden">
+              <table className="w-full text-xs">
+                <thead>
+                  <tr className="border-b border-white/5 text-[10px] uppercase tracking-wider text-slate-500">
+                    <th className="px-3 py-2 text-left font-semibold">Nome</th>
+                    <th className="px-3 py-2 text-left font-semibold">Telefone</th>
+                    <th className="px-3 py-2 text-left font-semibold hidden sm:table-cell">Email</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-white/5">
+                  {parsed.slice(0, 5).map((c, i) => (
+                    <tr key={i} className="bg-[#0F172A]">
+                      <td className="px-3 py-2 text-slate-200">{c.name}</td>
+                      <td className="px-3 py-2 text-slate-400">{c.phone}</td>
+                      <td className="px-3 py-2 text-slate-500 hidden sm:table-cell">{c.email ?? "—"}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              {parsed.length > 5 && (
+                <p className="px-3 py-2 text-[10px] text-slate-600 bg-[#0F172A] border-t border-white/5">
+                  + {parsed.length - 5} mais clientes
+                </p>
+              )}
+            </div>
+
+            {parseErrors.length > 0 && (
+              <div className="rounded-lg bg-red-500/10 border border-red-500/20 p-3 space-y-1">
+                <p className="text-xs font-semibold text-red-400">{parseErrors.length} linha(s) ignoradas:</p>
+                {parseErrors.slice(0, 3).map((e, i) => (
+                  <p key={i} className="text-[11px] text-red-300">{e}</p>
+                ))}
+                {parseErrors.length > 3 && (
+                  <p className="text-[11px] text-red-400">+ {parseErrors.length - 3} mais erros</p>
+                )}
+              </div>
+            )}
+
+            {importError && <p className="text-xs text-red-400">{importError}</p>}
+
+            <div className="flex gap-3">
+              <button
+                type="button"
+                onClick={() => { setStep(1); setParsed([]); setParseErrors([]); setFileName(""); if (fileRef.current) fileRef.current.value = ""; }}
+                className="flex-1 rounded-lg border border-white/10 py-2.5 text-sm text-slate-400 hover:text-white hover:bg-white/5 transition-colors"
+              >
+                Voltar
+              </button>
+              <button
+                type="button"
+                onClick={handleImport}
+                disabled={importing}
+                className="flex-1 rounded-lg bg-[#00B4D8] py-2.5 text-sm font-medium text-white hover:bg-[#0090b0] disabled:opacity-50 transition-colors flex items-center justify-center gap-2"
+              >
+                {importing ? (
+                  <><Loader2 size={14} className="animate-spin" /> A importar…</>
+                ) : (
+                  `Importar ${parsed.length} clientes`
+                )}
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* PASSO 3 — Resultado */}
+        {step === 3 && result && (
+          <div className="space-y-4">
+            <div className="rounded-xl bg-[#0F172A] p-5 space-y-3 text-center">
+              <div className="text-3xl font-bold text-white">{result.imported}</div>
+              <p className="text-sm text-slate-400">
+                {result.imported === 1 ? "cliente importado" : "clientes importados"}
+              </p>
+              {result.skipped > 0 && (
+                <p className="text-xs text-slate-500">
+                  {result.skipped} ignorado{result.skipped !== 1 ? "s" : ""} (já existiam)
+                </p>
+              )}
+            </div>
+
+            {result.errors.length > 0 && (
+              <div className="rounded-lg bg-red-500/10 border border-red-500/20 p-3 space-y-1">
+                <p className="text-xs font-semibold text-red-400">{result.errors.length} erro(s):</p>
+                {result.errors.slice(0, 4).map((e, i) => (
+                  <p key={i} className="text-[11px] text-red-300">{e}</p>
+                ))}
+                {result.errors.length > 4 && (
+                  <p className="text-[11px] text-red-400">+ {result.errors.length - 4} mais</p>
+                )}
+              </div>
+            )}
+
+            <button
+              type="button"
+              onClick={onClose}
+              className="w-full rounded-lg bg-[#00B4D8] py-2.5 text-sm font-medium text-white hover:bg-[#0090b0] transition-colors"
+            >
+              Fechar
+            </button>
+          </div>
+        )}
+
       </div>
     </div>
   );
@@ -313,6 +629,7 @@ export default function ClientesPage() {
   const [search, setSearch] = useState("");
   const [selected, setSelected] = useState<Client | null>(null);
   const [showNewModal, setShowNewModal] = useState(false);
+  const [showImportModal, setShowImportModal] = useState(false);
 
   useEffect(() => {
     fetch("/api/clients")
@@ -328,6 +645,15 @@ export default function ClientesPage() {
   function handleClientCreated(client: Client) {
     setClients((prev) => [...prev, client].sort((a, b) => a.name.localeCompare(b.name)));
     setShowNewModal(false);
+  }
+
+  function handleImported(count: number) {
+    if (count > 0) {
+      fetch("/api/clients")
+        .then((r) => r.json())
+        .then((data) => { if (Array.isArray(data)) setClients(data); })
+        .catch(() => {});
+    }
   }
 
   function handlePhotoUpdate(clientId: string, photoUrl: string) {
@@ -356,13 +682,22 @@ export default function ClientesPage() {
               {loading ? "A carregar…" : `${clients.length} clientes registados`}
             </p>
           </div>
-          <button
-            onClick={() => setShowNewModal(true)}
-            className="flex items-center gap-2 rounded-lg bg-[#00B4D8] px-4 py-2 text-sm font-medium text-white hover:bg-[#0090b0] transition-colors"
-          >
-            <Plus size={15} />
-            Novo cliente
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setShowImportModal(true)}
+              className="flex items-center gap-2 rounded-lg border border-white/10 bg-white/5 px-4 py-2 text-sm font-medium text-slate-300 hover:text-white hover:bg-white/10 transition-colors"
+            >
+              <Upload size={15} />
+              Importar CSV
+            </button>
+            <button
+              onClick={() => setShowNewModal(true)}
+              className="flex items-center gap-2 rounded-lg bg-[#00B4D8] px-4 py-2 text-sm font-medium text-white hover:bg-[#0090b0] transition-colors"
+            >
+              <Plus size={15} />
+              Novo cliente
+            </button>
+          </div>
         </div>
 
         {/* Search */}
@@ -466,6 +801,13 @@ export default function ClientesPage() {
 
       {showNewModal && (
         <NewClientModal onClose={() => setShowNewModal(false)} onCreated={handleClientCreated} />
+      )}
+
+      {showImportModal && (
+        <ImportCsvModal
+          onClose={() => setShowImportModal(false)}
+          onImported={(count) => { handleImported(count); setShowImportModal(false); }}
+        />
       )}
     </AppLayout>
   );
