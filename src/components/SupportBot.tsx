@@ -55,8 +55,16 @@ const QUICK_QUESTIONS = [
   "Como vejo as minhas finanças?",
 ];
 
+// Páginas donde la Sofía NO debe aparecer
+const HIDDEN_PATHS = ["/login", "/register", "/onboarding"];
+
 export default function SupportBot() {
   const pathname = usePathname();
+
+  // Ocultar en páginas públicas / onboarding
+  const isHidden =
+    HIDDEN_PATHS.some((p) => pathname === p || pathname.startsWith(p + "/"));
+
   const [open, setOpen] = useState(false);
   const [messages, setMessages] = useState<Message[]>([WELCOME_DEFAULT]);
   const [input, setInput] = useState("");
@@ -231,6 +239,8 @@ export default function SupportBot() {
 
   const showQuickQuestions =
     messages.length === 1 && messages[0].role === "assistant";
+
+  if (isHidden) return null;
 
   return (
     <>
