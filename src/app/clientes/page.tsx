@@ -5,6 +5,7 @@ import Image from "next/image";
 import AppLayout from "@/components/AppLayout";
 import type { Client, Appointment } from "@/lib/types";
 import { Search, Plus, ChevronRight, Phone, Mail, CalendarDays, Loader2, Cake, Camera, Upload } from "lucide-react";
+import { parseCsv, type ParsedClient } from "@/lib/csv";
 
 function isBirthdayToday(dataNascimento: string | null | undefined): boolean {
   if (!dataNascimento) return false;
@@ -124,55 +125,6 @@ function NewClientModal({ onClose, onCreated }: { onClose: () => void; onCreated
       </div>
     </div>
   );
-}
-
-// ── CSV helpers ──────────────────────────────────────────────────────────────
-
-interface ParsedClient {
-  name: string;
-  phone: string;
-  email?: string;
-  data_nascimento?: string;
-}
-
-function detectSeparator(firstLine: string): "," | ";" {
-  return (firstLine.match(/;/g) ?? []).length >= (firstLine.match(/,/g) ?? []).length ? ";" : ",";
-}
-
-function parseCsv(text: string): { clients: ParsedClient[]; errors: string[] } {
-  const lines = text.replace(/\r\n/g, "\n").replace(/\r/g, "\n").split("\n").filter(Boolean);
-  if (lines.length < 2) return { clients: [], errors: ["Ficheiro vazio ou sem dados."] };
-
-  const sep = detectSeparator(lines[0]);
-  const headers = lines[0].split(sep).map((h) => h.trim().toLowerCase().replace(/['"]/g, ""));
-
-  const nameIdx  = headers.findIndex((h) => h === "nome" || h === "name");
-  const phoneIdx = headers.findIndex((h) => h === "telefone" || h === "phone");
-  const emailIdx = headers.findIndex((h) => h === "email");
-  const birthIdx = headers.findIndex((h) => h === "data_nascimento" || h === "birthday");
-
-  if (nameIdx === -1 || phoneIdx === -1) {
-    return { clients: [], errors: ["Colunas obrigatórias não encontradas: nome, telefone."] };
-  }
-
-  const clients: ParsedClient[] = [];
-  const errors: string[] = [];
-
-  for (let i = 1; i < lines.length; i++) {
-    const cols = lines[i].split(sep).map((c) => c.trim().replace(/^["']|["']$/g, ""));
-    const name  = cols[nameIdx]  ?? "";
-    const phone = cols[phoneIdx] ?? "";
-    if (!name || !phone) {
-      errors.push(`Linha ${i + 1}: nome ou telefone em falta.`);
-      continue;
-    }
-    const client: ParsedClient = { name, phone };
-    if (emailIdx !== -1 && cols[emailIdx]) client.email = cols[emailIdx];
-    if (birthIdx !== -1 && cols[birthIdx]) client.data_nascimento = cols[birthIdx];
-    clients.push(client);
-  }
-
-  return { clients, errors };
 }
 
 // ── ImportCsvModal ────────────────────────────────────────────────────────────

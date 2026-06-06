@@ -1,10 +1,11 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
-import { Zap, Plus, Trash2, ChevronLeft, Check, LogOut } from "lucide-react";
+import { Zap, Plus, Trash2, ChevronLeft, Check, LogOut, Upload } from "lucide-react";
 import { createSupabaseBrowserClient } from "@/utils/supabase/client";
+import { parseCsv, type ParsedClient } from "@/lib/csv";
 
 const SOFIA_AVATAR =
   "https://assets.cdn.filesafe.space/MgsViYLMmCdJksx9p3va/media/69e8ba57a1636a6c65273241.png";
@@ -39,7 +40,7 @@ interface ApptInput {
   time: string;
 }
 
-type StepNum = 1 | 2 | 3 | 4 | 5 | "done";
+type StepNum = 1 | 2 | 3 | 4 | 5 | 6 | "done";
 
 // ——— Constants ———
 
@@ -96,13 +97,399 @@ async function api(path: string, method: string, body?: unknown) {
   return data;
 }
 
+// ——— Step 5: Os teus clientes ———
+
+type ClientOption = "phone" | "excel" | "manual" | null;
+
+interface ManualClient {
+  name: string;
+  phone: string;
+}
+
+function CsvUploadZone({
+  onImported,
+}: {
+  onImported: (count: number) => void;
+}) {
+  const fileRef = useRef<HTMLInputElement>(null);
+  const [parsed, setParsed] = useState<ParsedClient[]>([]);
+  const [parseErrors, setParseErrors] = useState<string[]>([]);
+  const [fileName, setFileName] = useState("");
+  const [importing, setImporting] = useState(false);
+  const [done, setDone] = useState(false);
+  const [importError, setImportError] = useState<string | null>(null);
+
+  function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setFileName(file.name);
+    setDone(false);
+    setImportError(null);
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const text = ev.target?.result as string;
+      const { clients, errors } = parseCsv(text);
+      setParsed(clients);
+      setParseErrors(errors);
+    };
+    reader.readAsText(file, "UTF-8");
+  }
+
+  async function handleImport() {
+    setImporting(true);
+    setImportError(null);
+    try {
+      const res = await fetch("/api/clients/import", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ clients: parsed }),
+      });
+      const data = await res.json();
+      if (!res.ok) { setImportError(data.error ?? "Erro ao importar."); return; }
+      setDone(true);
+      onImported(data.imported ?? parsed.length);
+    } catch {
+      setImportError("Erro de ligação. Tenta novamente.");
+    } finally {
+      setImporting(false);
+    }
+  }
+
+  if (done) {
+    return (
+      <div className="mt-3 rounded-lg border border-[#2DD4BF]/20 bg-[#2DD4BF]/5 px-4 py-3 text-sm text-[#2DD4BF]">
+        ✅ Clientes importados com sucesso!
+      </div>
+    );
+  }
+
+  return (
+    <div className="mt-3 space-y-3">
+      {/* Aviso WhatsApp */}
+      <div className="flex gap-2 rounded-lg border border-yellow-500/30 bg-yellow-500/10 px-3 py-2.5">
+        <span className="shrink-0">⚠️</span>
+        <p className="text-xs text-yellow-200 leading-relaxed">
+          Cada cliente receberá uma mensagem de boas-vindas no WhatsApp.
+        </p>
+      </div>
+
+      {/* Zona de upload */}
+      <div
+        className="flex cursor-pointer flex-col items-center gap-2 rounded-lg border-2 border-dashed border-white/10 bg-[#0F172A] py-5 transition-colors hover:border-[#00B4D8]/40"
+        onClick={() => fileRef.current?.click()}
+      >
+        <Upload size={20} className="text-slate-500" />
+        <p className="text-sm text-slate-400">
+          {fileName ? fileName : "Clica para selecionar o ficheiro CSV"}
+        </p>
+        <input ref={fileRef} type="file" accept=".csv,text/csv" className="hidden" onChange={handleFile} />
+      </div>
+
+      {/* Preview */}
+      {parsed.length > 0 && (
+        <div className="space-y-2">
+          <p className="text-xs text-slate-400">
+            <span className="font-semibold text-white">{parsed.length}</span> clientes encontrados — pré-visualização:
+          </p>
+          <div className="rounded-lg border border-white/5 overflow-hidden">
+            <table className="w-full text-xs">
+              <thead>
+                <tr className="border-b border-white/5 text-[10px] uppercase text-slate-500">
+                  <th className="px-3 py-1.5 text-left">Nome</th>
+                  <th className="px-3 py-1.5 text-left">Telefone</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-white/5">
+                {parsed.slice(0, 3).map((c, i) => (
+                  <tr key={i} className="bg-[#0F172A]">
+                    <td className="px-3 py-1.5 text-slate-200">{c.name}</td>
+                    <td className="px-3 py-1.5 text-slate-400">{c.phone}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            {parsed.length > 3 && (
+              <p className="px-3 py-1.5 text-[10px] text-slate-600 bg-[#0F172A] border-t border-white/5">
+                + {parsed.length - 3} mais clientes
+              </p>
+            )}
+          </div>
+          {parseErrors.length > 0 && (
+            <p className="text-xs text-red-400">{parseErrors.length} linha(s) com erro ignoradas.</p>
+          )}
+          {importError && <p className="text-xs text-red-400">{importError}</p>}
+          <button
+            onClick={handleImport}
+            disabled={importing}
+            className="w-full rounded-lg bg-[#00B4D8] py-2 text-sm font-semibold text-white hover:bg-[#0090b0] disabled:opacity-50 transition-colors flex items-center justify-center gap-2"
+          >
+            {importing ? <><span className="animate-spin">⏳</span> A importar…</> : `Importar ${parsed.length} clientes`}
+          </button>
+        </div>
+      )}
+
+      {parseErrors.length > 0 && parsed.length === 0 && (
+        <p className="text-xs text-red-400">{parseErrors[0]}</p>
+      )}
+    </div>
+  );
+}
+
+function StepClientes({ onBack, onNext }: { onBack: () => void; onNext: () => void }) {
+  const [selected, setSelected] = useState<ClientOption>(null);
+  const [imported, setImported]  = useState(false);
+  const [escaped, setEscaped]    = useState(false);
+
+  // Manual clients
+  const [manualForm, setManualForm] = useState({ name: "", phone: "" });
+  const [manualList, setManualList] = useState<ManualClient[]>([]);
+  const [manualSaving, setManualSaving] = useState(false);
+  const [manualError, setManualError]   = useState<string | null>(null);
+
+  const canProceed = imported || manualList.length > 0 || escaped;
+
+  function handleOption(opt: ClientOption) {
+    setSelected((prev) => (prev === opt ? null : opt));
+    setEscaped(false);
+  }
+
+  async function handleAddManual() {
+    if (!manualForm.name.trim() || !manualForm.phone.trim()) {
+      setManualError("Nome e telefone são obrigatórios.");
+      return;
+    }
+    setManualSaving(true);
+    setManualError(null);
+    try {
+      const res = await fetch("/api/clients/import", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ clients: [{ name: manualForm.name.trim(), phone: manualForm.phone.trim() }] }),
+      });
+      const data = await res.json();
+      if (!res.ok) { setManualError(data.error ?? "Erro ao guardar."); return; }
+      setManualList((prev) => [...prev, { name: manualForm.name.trim(), phone: manualForm.phone.trim() }]);
+      setManualForm({ name: "", phone: "" });
+      setImported(true);
+    } catch {
+      setManualError("Erro de ligação.");
+    } finally {
+      setManualSaving(false);
+    }
+  }
+
+  const optionBase = "rounded-xl border px-4 py-3.5 text-left transition-colors cursor-pointer";
+  const optionActive = "border-[#00B4D8] bg-[#00B4D8]/10";
+  const optionIdle   = "border-white/10 hover:border-white/20 bg-white/[0.02]";
+
+  return (
+    <div className="rounded-2xl border border-white/5 bg-[#1E293B] p-6">
+      <h1 className="mb-1 text-xl font-bold text-white">Os teus clientes são o coração do teu negócio</h1>
+      <p className="mb-6 text-sm text-slate-400 leading-relaxed">
+        Para que o VagasIA envie lembretes, recupere vagas e fidelize os teus clientes, precisamos da tua lista.
+        Sem clientes, é como ter uma secretária sem agenda.
+      </p>
+
+      <div className="space-y-3">
+
+        {/* Opção 1 — Telemóvel */}
+        <div>
+          <button
+            type="button"
+            onClick={() => handleOption("phone")}
+            className={`${optionBase} ${selected === "phone" ? optionActive : optionIdle} w-full`}
+          >
+            <div className="flex items-center gap-3">
+              <span className="text-2xl">📱</span>
+              <div>
+                <p className="text-sm font-semibold text-white">Tenho no telemóvel</p>
+                <p className="text-xs text-slate-500 mt-0.5">Exportar contactos e importar aqui</p>
+              </div>
+            </div>
+          </button>
+          {selected === "phone" && (
+            <div className="mt-2 ml-1 rounded-xl border border-white/5 bg-[#0F172A] p-4 space-y-3">
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <p className="text-xs font-semibold text-slate-300 mb-1.5">🍎 iPhone</p>
+                  <ol className="space-y-1 text-xs text-slate-500 list-decimal list-inside">
+                    <li>Definições → [teu nome]</li>
+                    <li>iCloud → Contactos</li>
+                    <li>Exportar .vcf → converter para CSV</li>
+                  </ol>
+                </div>
+                <div>
+                  <p className="text-xs font-semibold text-slate-300 mb-1.5">🤖 Android</p>
+                  <ol className="space-y-1 text-xs text-slate-500 list-decimal list-inside">
+                    <li>Contactos → Menu</li>
+                    <li>Exportar → Guardar como .vcf</li>
+                    <li>Converter para CSV</li>
+                  </ol>
+                </div>
+              </div>
+              <p className="text-xs text-slate-500">Exporta os teus contactos e importa o ficheiro aqui em baixo</p>
+              <CsvUploadZone onImported={() => setImported(true)} />
+            </div>
+          )}
+        </div>
+
+        {/* Opção 2 — Excel */}
+        <div>
+          <button
+            type="button"
+            onClick={() => handleOption("excel")}
+            className={`${optionBase} ${selected === "excel" ? optionActive : optionIdle} w-full`}
+          >
+            <div className="flex items-center gap-3">
+              <span className="text-2xl">📊</span>
+              <div>
+                <p className="text-sm font-semibold text-white">Tenho numa lista ou Excel</p>
+                <p className="text-xs text-slate-500 mt-0.5">Guardar como CSV e importar</p>
+              </div>
+            </div>
+          </button>
+          {selected === "excel" && (
+            <div className="mt-2 ml-1 rounded-xl border border-white/5 bg-[#0F172A] p-4 space-y-3">
+              <div className="space-y-2">
+                {[
+                  "Abre o Excel ou Google Sheets",
+                  "Cria 2 colunas: nome e telefone (ex: +351912345678)",
+                  "Ficheiro → Guardar como → CSV",
+                ].map((step, i) => (
+                  <div key={i} className="flex items-start gap-3">
+                    <span className="shrink-0 text-base font-bold text-[#00B4D8]">{i + 1}</span>
+                    <p className="text-xs text-slate-400 leading-relaxed pt-0.5">{step}</p>
+                  </div>
+                ))}
+              </div>
+              <CsvUploadZone onImported={() => setImported(true)} />
+            </div>
+          )}
+        </div>
+
+        {/* Opção 3 — Manual */}
+        <div>
+          <button
+            type="button"
+            onClick={() => handleOption("manual")}
+            className={`${optionBase} ${selected === "manual" ? optionActive : optionIdle} w-full`}
+          >
+            <div className="flex items-center gap-3">
+              <span className="text-2xl">✍️</span>
+              <div>
+                <p className="text-sm font-semibold text-white">Vou adicionar um a um</p>
+                <p className="text-xs text-slate-500 mt-0.5">Recomendado: mínimo 3 clientes</p>
+              </div>
+            </div>
+          </button>
+          {selected === "manual" && (
+            <div className="mt-2 ml-1 rounded-xl border border-white/5 bg-[#0F172A] p-4 space-y-3">
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  placeholder="Nome"
+                  value={manualForm.name}
+                  onChange={(e) => setManualForm((f) => ({ ...f, name: e.target.value }))}
+                  className="flex-1 rounded-lg border border-white/10 bg-[#1E293B] px-3 py-2 text-sm text-white placeholder-slate-600 focus:border-[#00B4D8] focus:outline-none"
+                />
+                <input
+                  type="tel"
+                  placeholder="+351…"
+                  value={manualForm.phone}
+                  onChange={(e) => setManualForm((f) => ({ ...f, phone: e.target.value }))}
+                  className="flex-1 rounded-lg border border-white/10 bg-[#1E293B] px-3 py-2 text-sm text-white placeholder-slate-600 focus:border-[#00B4D8] focus:outline-none"
+                />
+                <button
+                  type="button"
+                  onClick={handleAddManual}
+                  disabled={manualSaving}
+                  className="flex items-center gap-1 rounded-lg bg-[#00B4D8] px-3 py-2 text-sm font-medium text-white hover:bg-[#0090b0] disabled:opacity-50 transition-colors whitespace-nowrap"
+                >
+                  <Plus size={14} /> Adicionar
+                </button>
+              </div>
+              {manualError && <p className="text-xs text-red-400">{manualError}</p>}
+              {manualList.length > 0 && (
+                <div className="space-y-1">
+                  {manualList.map((c, i) => (
+                    <div key={i} className="flex items-center justify-between rounded-lg bg-[#1E293B] px-3 py-2">
+                      <p className="text-xs text-slate-300">{c.name}</p>
+                      <p className="text-xs text-slate-500">{c.phone}</p>
+                    </div>
+                  ))}
+                  {manualList.length < 3 && (
+                    <p className="text-xs text-slate-600 text-center pt-1">
+                      Adiciona mais {3 - manualList.length} para atingir o mínimo recomendado
+                    </p>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Escape honesto */}
+      {!escaped ? (
+        <button
+          type="button"
+          onClick={() => { setEscaped(true); setSelected(null); }}
+          className="mt-5 w-full text-center text-xs text-slate-600 hover:text-slate-400 transition-colors py-1"
+        >
+          O meu negócio é novo e ainda não tenho clientes
+        </button>
+      ) : (
+        <div className="mt-5 rounded-xl border border-[#2DD4BF]/20 bg-[#2DD4BF]/5 px-4 py-3 space-y-3">
+          <p className="text-sm text-slate-300 leading-relaxed">
+            Sem problema! Quando tiveres os teus primeiros clientes, vai a{" "}
+            <span className="font-semibold text-white">Clientes → Importar CSV</span>. Quanto mais completa
+            estiver a tua lista, mais o sistema trabalha por ti. 💚
+          </p>
+          <button
+            type="button"
+            onClick={onNext}
+            className="w-full rounded-xl bg-[#00B4D8] py-2.5 text-sm font-semibold text-white hover:bg-[#0090b0] transition-colors"
+          >
+            Continuar →
+          </button>
+        </div>
+      )}
+
+      {/* Navegação */}
+      {!escaped && (
+        <div className="mt-4 flex items-center gap-3">
+          <button
+            onClick={onBack}
+            className="flex items-center gap-1 rounded-xl border border-white/10 px-4 py-3 text-sm text-slate-400 transition-colors hover:text-white"
+          >
+            <ChevronLeft size={16} /> Voltar
+          </button>
+          <button
+            onClick={onNext}
+            disabled={!canProceed}
+            className="flex-1 rounded-xl bg-[#00B4D8] py-3 font-semibold text-white transition-colors hover:bg-[#0090b0] disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            Próximo →
+          </button>
+        </div>
+      )}
+
+      {!canProceed && !escaped && (
+        <p className="mt-2 text-center text-xs text-slate-600">
+          Importa clientes ou usa a opção abaixo para continuar
+        </p>
+      )}
+    </div>
+  );
+}
+
 // ——— Progress bar ———
 
-function Progress({ step }: { step: StepNum }) {
-  const current = step === "done" ? 5 : (step as number);
+function Progress({ step, total = 6 }: { step: StepNum; total?: number }) {
+  const current = step === "done" ? total : (step as number);
   return (
     <div className="flex items-center gap-2 mb-8">
-      {[1, 2, 3, 4, 5].map((n) => (
+      {Array.from({ length: total }, (_, i) => i + 1).map((n) => (
         <div key={n} className="flex items-center gap-2">
           <div
             className={`flex h-7 w-7 items-center justify-center rounded-full text-xs font-semibold transition-colors ${
@@ -115,7 +502,7 @@ function Progress({ step }: { step: StepNum }) {
           >
             {n < current ? <Check size={12} /> : n}
           </div>
-          {n < 5 && (
+          {n < total && (
             <div
               className={`h-px w-6 transition-colors ${n < current ? "bg-[#00B4D8]" : "bg-white/10"}`}
             />
@@ -123,7 +510,7 @@ function Progress({ step }: { step: StepNum }) {
         </div>
       ))}
       <span className="ml-2 text-xs text-slate-500">
-        {step === "done" ? "Concluído" : `Passo ${step} de 5`}
+        {step === "done" ? "Concluído" : `Passo ${step} de ${total}`}
       </span>
     </div>
   );
@@ -682,14 +1069,17 @@ export default function OnboardingPage() {
                 disabled={loading}
                 className="text-xs text-slate-600 hover:text-slate-400 transition-colors disabled:opacity-40 whitespace-nowrap"
               >
-                Saltar
+                Saltar →
               </button>
             </div>
           </div>
         )}
 
-        {/* ——— Step 5 — Número dedicado ——— */}
-        {step === 5 && (
+        {/* ——— Step 5 — Os teus clientes ——— */}
+        {step === 5 && <StepClientes onBack={() => setStep(4)} onNext={() => setStep(6)} />}
+
+        {/* ——— Step 6 — Número dedicado ——— */}
+        {step === 6 && (
           <div className="rounded-2xl border border-white/5 bg-[#1E293B] p-6">
             {/* Ícono */}
             <div className="mb-5 flex h-14 w-14 items-center justify-center rounded-2xl bg-[#00B4D8]/10">
@@ -755,7 +1145,7 @@ export default function OnboardingPage() {
             {/* Botones */}
             <div className="flex items-center gap-3">
               <button
-                onClick={() => setStep(4)}
+                onClick={() => setStep(5)}
                 className="flex items-center gap-1 rounded-xl border border-white/10 px-4 py-3 text-sm text-slate-400 transition-colors hover:text-white"
               >
                 <ChevronLeft size={16} /> Voltar
