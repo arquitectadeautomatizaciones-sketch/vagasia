@@ -11,8 +11,8 @@ const SOFIA_AVATAR =
 
 // Clave de localStorage para el mensaje de bienvenida del onboarding (Mensaje A)
 const LS_ONBOARDING_KEY = "sofia_onboarding_welcome";
-// Clave de localStorage para evitar abrir el chat más de una vez en dashboard
-const LS_GREETED_KEY = "bot_greeted";
+// Clave de localStorage para la bienvenida de primera entrada al dashboard
+const LS_WELCOME_KEY = "sofia_welcome_shown";
 
 const TRIAL_DAYS = 7;
 
@@ -123,12 +123,12 @@ export default function SupportBot() {
       }
 
     } else if (pathname === "/dashboard") {
-      // Dashboard: abrir solo en la primera visita durante trial (Mensaje B)
-      const alreadyGreeted = typeof window !== "undefined"
-        ? localStorage.getItem(LS_GREETED_KEY) === "true"
+      // Dashboard: abrir solo la PRIMERA vez que el cliente entra (uma vez por conta)
+      const alreadyShown = typeof window !== "undefined"
+        ? localStorage.getItem(LS_WELCOME_KEY) === "true"
         : true;
 
-      if (!alreadyGreeted) {
+      if (!alreadyShown) {
         createSupabaseBrowserClient()
           .auth.getUser()
           .then(({ data: { user } }) => {
@@ -140,12 +140,24 @@ export default function SupportBot() {
                 TRIAL_DAYS * 24 * 60 * 60 * 1000;
 
             if (inTrial) {
-              setMessages([WELCOME_DEFAULT]);
+              // Obtener nombre del negocio para personalizar el mensaje
+              const businessName =
+                (user?.app_metadata?.business_name as string | undefined) ?? "";
+              const firstName = businessName.split(" ")[0] || "";
+              const welcomeMsg: Message = {
+                role: "assistant",
+                content:
+                  `Olá${firstName ? ` ${firstName}` : ""}! 👋 Bem-vinda ao VagasIA!\n\n` +
+                  `Sou a Sofía, da equipa de apoio ao cliente. Estou aqui para te ajudar a tirar o máximo partido do sistema nos teus 7 dias de experiência gratuita.\n\n` +
+                  `Se tiveres alguma dúvida sobre como funciona algo — marcações, lembretes, a lista de espera, o que for — é só perguntar.\n\n` +
+                  `Estou sempre aqui! 💚`,
+              };
+              setMessages([welcomeMsg]);
               autoOpenTimerRef.current = setTimeout(() => {
                 if (cancelled) return;
                 setOpen(true);
-                localStorage.setItem(LS_GREETED_KEY, "true");
-              }, 3000);
+                localStorage.setItem(LS_WELCOME_KEY, "true");
+              }, 5000);
             }
           });
       }
