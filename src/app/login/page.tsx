@@ -104,6 +104,9 @@ export default function LoginPage() {
           <div>
             <p className="text-lg font-bold tracking-wide text-white">VagasIA</p>
             <p className="text-[11px] leading-none text-[#2DD4BF]">Sistema de Gestão</p>
+            <p className="mt-0.5 text-[10px] italic leading-none text-[#4ECDC4]">
+              Transforme vagas vazias em faturação
+            </p>
           </div>
         </div>
 
