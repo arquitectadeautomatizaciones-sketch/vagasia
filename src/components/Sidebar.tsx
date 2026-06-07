@@ -17,6 +17,7 @@ import {
   Cake,
   Star,
   Award,
+  BarChart2,
   X,
 } from "lucide-react";
 import { createSupabaseBrowserClient } from "@/utils/supabase/client";
@@ -31,6 +32,7 @@ const navItems = [
   { href: "/fidelizacao", label: "Fidelização", icon: Award },
   { href: "/satisfacao", label: "Satisfação", icon: Star },
   { href: "/financeiro", label: "Financeiro", icon: Wallet },
+  { href: "/relatorio", label: "Relatório", icon: BarChart2 },
   { href: "/configuracoes", label: "Configurações", icon: Settings },
 ];
 
