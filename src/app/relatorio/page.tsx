@@ -153,6 +153,92 @@ function TrendBadge({ current, previous, suffix = "" }: { current: number; previ
   );
 }
 
+// ── "O próximo passo" — texto personalizado por problema prioritário ──────────
+const WHATSAPP_CTA = "wa.me/351911816539";
+
+function buildNextStep(report: MonthlyReport, previous: MonthlyReport | undefined): string {
+  const cancelRate = report.appointments_total > 0
+    ? report.appointments_cancelled / report.appointments_total
+    : 0;
+  const prevCancelRate = previous && previous.appointments_total > 0
+    ? previous.appointments_cancelled / previous.appointments_total
+    : undefined;
+  const revenueDropped = previous !== undefined && report.total_revenue < previous.total_revenue * 0.9;
+  const noRecovered = report.appointments_total > 0 && report.appointments_recovered === 0;
+
+  // Prioridade 1: cancelamentos altos (>20%)
+  if (cancelRate > 0.2) {
+    const lost = Math.round(
+      report.appointments_cancelled * (report.appointments_total > 0 ? report.total_revenue / report.appointments_total : 0)
+    );
+    return (
+      `Este mês tiveste ${report.appointments_cancelled} marcações canceladas — ` +
+      `uma perda estimada de €${lost} em faturação que podias ter aproveitado. ` +
+      `Posso ajudá-la a resolver isto numa sessão de 60 minutos, com estratégias concretas para reduzir faltas e preencher vagas em aberto. ` +
+      `Reserve aqui por €50: https://${WHATSAPP_CTA}`
+    );
+  }
+
+  // Prioridade 2: faturação caiu mais de 10%
+  if (revenueDropped && previous) {
+    const diff = Math.round(previous.total_revenue - report.total_revenue);
+    return (
+      `A tua faturação desceu €${diff} em relação ao mês anterior — ` +
+      `uma quebra que convém travar antes que se torne um padrão. ` +
+      `Posso ajudá-la a identificar a causa e recuperar esse valor numa sessão de 60 minutos. ` +
+      `Reserve aqui por €50: https://${WHATSAPP_CTA}`
+    );
+  }
+
+  // Prioridade 3: qualidade de serviço baixa
+  if (report.satisfaction_qualidade > 0 && report.satisfaction_qualidade < 3.5) {
+    return (
+      `Os teus clientes avaliaram a qualidade do serviço com ${report.satisfaction_qualidade.toFixed(1)}/5 este mês — ` +
+      `uma nota que pode estar a impedir recomendações e fidelização. ` +
+      `Posso ajudá-la a perceber o que está a acontecer e como melhorar numa sessão de 60 minutos. ` +
+      `Reserve aqui por €50: https://${WHATSAPP_CTA}`
+    );
+  }
+
+  // Prioridade 4: tempo de espera mal avaliado
+  if (report.satisfaction_tempo_espera > 0 && report.satisfaction_tempo_espera < 3.5) {
+    return (
+      `O tempo de espera foi avaliado com ${report.satisfaction_tempo_espera.toFixed(1)}/5 — ` +
+      `clientes que esperam demasiado raramente voltam. ` +
+      `Posso ajudá-la a reorganizar os intervalos entre marcações numa sessão de 60 minutos. ` +
+      `Reserve aqui por €50: https://${WHATSAPP_CTA}`
+    );
+  }
+
+  // Prioridade 5: lista de espera não usada
+  if (noRecovered) {
+    return (
+      `Este mês não recuperaste nenhuma vaga cancelada — ` +
+      `cada cancelamento é dinheiro que podia ter ido para outro cliente da lista de espera. ` +
+      `Posso ajudá-la a activar este processo numa sessão de 60 minutos. ` +
+      `Reserve aqui por €50: https://${WHATSAPP_CTA}`
+    );
+  }
+
+  // Prioridade 6: cancelamentos a subir vs mês anterior
+  if (prevCancelRate !== undefined && cancelRate > prevCancelRate + 0.05) {
+    return (
+      `Os cancelamentos subiram este mês em relação ao anterior. ` +
+      `Se esta tendência continuar, vai reflectir-se na faturação nos próximos meses. ` +
+      `Posso ajudá-la a inverter isto numa sessão de 60 minutos. ` +
+      `Reserve aqui por €50: https://${WHATSAPP_CTA}`
+    );
+  }
+
+  // Default: crescimento
+  return (
+    `O teu negócio está a funcionar bem — e há sempre espaço para crescer mais. ` +
+    `Numa sessão de 60 minutos posso ajudá-la a identificar a próxima alavanca de crescimento: ` +
+    `novos serviços, fidelização ou aumento de preços. ` +
+    `Reserve aqui por €50: https://${WHATSAPP_CTA}`
+  );
+}
+
 // ── Main page ─────────────────────────────────────────────────────────────────
 export default function RelatorioPage() {
   const now = new Date();
@@ -422,25 +508,24 @@ export default function RelatorioPage() {
           </div>
         )}
 
-        {/* ── Card Diana ── */}
-        <div className="rounded-xl border border-white/5 bg-[#1E293B] p-5 flex items-start gap-4">
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#25D366]/15">
-            <MessageCircle size={20} className="text-[#25D366]" />
+        {/* ── O próximo passo ── */}
+        {current && (
+          <div className="rounded-xl border border-[#4ECDC4]/25 bg-gradient-to-br from-[#4ECDC4]/8 to-[#1E293B] p-6 space-y-4">
+            <h2 className="text-sm font-semibold text-[#4ECDC4]">💡 O próximo passo</h2>
+            <p className="text-sm text-slate-300 leading-relaxed">
+              {buildNextStep(current, previous)}
+            </p>
+            <a
+              href={`https://${WHATSAPP_CTA}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-2 rounded-lg bg-[#25D366] px-5 py-2.5 text-sm font-semibold text-white hover:bg-[#1ebe5d] transition-colors"
+            >
+              <MessageCircle size={15} />
+              Reservar sessão por €50
+            </a>
           </div>
-          <div className="flex-1 min-w-0">
-            <p className="text-sm font-semibold text-white">Precisas de ajuda para crescer?</p>
-            <p className="text-xs text-slate-400 mt-0.5">A Diana Garcia está disponível para te ajudar a tirar mais partido do VagasIA.</p>
-          </div>
-          <a
-            href="https://wa.me/351911816539"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="shrink-0 flex items-center gap-2 rounded-lg bg-[#25D366] px-4 py-2 text-sm font-medium text-white hover:bg-[#1ebe5d] transition-colors whitespace-nowrap"
-          >
-            <MessageCircle size={14} />
-            WhatsApp
-          </a>
-        </div>
+        )}
 
       </div>
     </AppLayout>
