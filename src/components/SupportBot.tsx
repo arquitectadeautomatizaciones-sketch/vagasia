@@ -318,7 +318,7 @@ export default function SupportBot() {
               <div
                 className={`max-w-[80%] rounded-2xl px-3 py-2 text-sm leading-relaxed whitespace-pre-wrap ${
                   m.role === "user"
-                    ? "bg-[#00B4D8] text-white rounded-tr-sm"
+                    ? "bg-[#2A9D8F] text-white rounded-tr-sm"
                     : "bg-[#1E293B] text-slate-200 rounded-tl-sm"
                 }`}
               >
@@ -340,7 +340,7 @@ export default function SupportBot() {
                 <button
                   key={q}
                   onClick={() => send(q)}
-                  className="rounded-full border border-[#00B4D8]/30 bg-[#00B4D8]/10 px-3 py-1.5 text-xs text-[#00B4D8] hover:bg-[#00B4D8]/20 transition-colors"
+                  className="rounded-full border border-[#4ECDC4]/30 bg-[#4ECDC4]/10 px-3 py-1.5 text-xs text-[#4ECDC4] hover:bg-[#4ECDC4]/20 transition-colors"
                 >
                   {q}
                 </button>
@@ -366,12 +366,12 @@ export default function SupportBot() {
               onChange={(e) => setInput(e.target.value)}
               placeholder="Escreve a tua pergunta…"
               disabled={loading}
-              className="flex-1 rounded-xl bg-[#1E293B] px-3 py-2 text-sm text-white placeholder-slate-600 outline-none focus:ring-1 focus:ring-[#00B4D8]/50 disabled:opacity-50 transition-all"
+              className="flex-1 rounded-xl bg-[#1E293B] px-3 py-2 text-sm text-white placeholder-slate-600 outline-none focus:ring-1 focus:ring-[#4ECDC4]/50 disabled:opacity-50 transition-all"
             />
             <button
               type="submit"
               disabled={!input.trim() || loading}
-              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#00B4D8] text-white hover:bg-[#0090b0] disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#2A9D8F] text-white hover:bg-[#1F7A6E] disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
             >
               <Send size={15} />
             </button>
@@ -382,7 +382,7 @@ export default function SupportBot() {
       {/* ── Botón flotante ─────────────────────────────────────────────────── */}
       <button
         onClick={() => setOpen((v) => !v)}
-        className="fixed bottom-4 right-4 z-50 flex h-14 w-14 items-center justify-center rounded-full bg-[#00B4D8] shadow-lg hover:bg-[#0090b0] transition-colors overflow-hidden"
+        className="fixed bottom-4 right-4 z-50 flex h-14 w-14 items-center justify-center rounded-full bg-[#2A9D8F] shadow-lg hover:bg-[#1F7A6E] transition-colors overflow-hidden"
         aria-label="Abrir assistente Sofía"
       >
         {open ? (
