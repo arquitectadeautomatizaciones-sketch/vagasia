@@ -55,6 +55,21 @@ const QUICK_QUESTIONS = [
   "Como vejo as minhas finanças?",
 ];
 
+function normalizeQ(s: string) {
+  return s.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[^a-z0-9 ]/g, "").trim();
+}
+
+const CACHED_ANSWERS: Record<string, string> = {
+  [normalizeQ("Como adiciono um cliente?")]:
+    "Para adicionar uma cliente, vai ao menu **Clientes** e clica em \"Nova cliente\". Preenches o nome e o número de telemóvel — que é o que o sistema usa para enviar os lembretes por WhatsApp. O email e a data de nascimento são opcionais, mas se tiveres o aniversário dela fica registado e o sistema avisa-te no dia 🎂\n\nQueres que te explique algum campo em concreto?",
+  [normalizeQ("Como publico uma vaga?")]:
+    "As vagas aparecem automaticamente a partir dos horários que configuraste em **Configurações → Horários**. Se ainda não configuraste os teus horários, começa por aí — defines os dias e horas em que trabalhas e o sistema gera as vagas sozinho.\n\nSe já configuraste e não aparecem vagas, diz-me e verifico o que se passa 💚",
+  [normalizeQ("Como funciona a fidelização?")]:
+    "O cartão de fidelização digital funciona assim: defines quantas visitas valem uma recompensa (por exemplo, 10 visitas = 1 serviço grátis) e o sistema vai acumulando os selos automaticamente a cada marcação concluída. A cliente recebe uma mensagem quando chega ao objetivo.\n\nPodes criar um cartão para cada cliente em **Clientes → [nome da cliente] → Fidelização**. Queres activar para alguma cliente já?",
+  [normalizeQ("Como vejo as minhas finanças?")]:
+    "No menu **Financeiro** tens um resumo do que faturaste — receitas por período, valor médio por consulta e as transações todas listadas. Podes também registar manualmente pagamentos que não passam pelo sistema.\n\nSe quiseres exportar os dados para Excel ou para a tua contabilista, há um botão de exportação no canto superior. Tens alguma dúvida sobre um número específico?",
+};
+
 // Páginas donde la Sofía NO debe aparecer
 const HIDDEN_PATHS = ["/login", "/register", "/onboarding"];
 
@@ -179,6 +194,13 @@ export default function SupportBot() {
     const history = [...messages, userMsg];
     setMessages(history);
     setInput("");
+
+    const cached = CACHED_ANSWERS[normalizeQ(content)];
+    if (cached) {
+      setMessages([...history, { role: "assistant", content: cached }]);
+      return;
+    }
+
     setLoading(true);
 
     const assistantMsg: Message = { role: "assistant", content: "" };
