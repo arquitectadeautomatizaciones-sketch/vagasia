@@ -9,12 +9,13 @@ const TRIAL_DAYS = 7;
 function buildSystemPrompt(ctx: {
   userName: string;
   businessName: string;
+  businessCategory: string;
   trialDaysLeft: number | null;
   clientCount: number;
   appointmentsThisWeek: number;
   today: string;
 }): string {
-  const { userName, businessName, trialDaysLeft, clientCount, appointmentsThisWeek, today } = ctx;
+  const { userName, businessName, businessCategory, trialDaysLeft, clientCount, appointmentsThisWeek, today } = ctx;
   const estadoStr =
     trialDaysLeft !== null
       ? `trial — faltam ${trialDaysLeft} dias`
@@ -61,6 +62,7 @@ IDIOMA: Responde sempre no idioma e variante em que te escrevem — português d
 CONTEXTO DO UTILIZADOR:
 - Nome: ${userName}
 - Nome do negócio: ${businessName}
+- Sector: ${businessCategory}
 - Estado: ${estadoStr}
 - Clientes registados: ${clientCount}
 - Marcações esta semana: ${appointmentsThisWeek}
@@ -118,6 +120,7 @@ export async function POST(request: Request) {
       systemPrompt = buildSystemPrompt({
         userName: "utilizadora",
         businessName: "o teu negócio",
+        businessCategory: "",
         trialDaysLeft: null,
         clientCount: 0,
         appointmentsThisWeek: 0,
@@ -134,7 +137,7 @@ export async function POST(request: Request) {
       const [bizRes, clientRes, apptRes] = await Promise.all([
         sb
           .from("businesses")
-          .select("name, trial_started_at, is_active")
+          .select("name, category, trial_started_at, is_active")
           .eq("id", businessId)
           .single(),
         sb
@@ -172,6 +175,7 @@ export async function POST(request: Request) {
       systemPrompt = buildSystemPrompt({
         userName,
         businessName: biz?.name ?? "o teu negócio",
+        businessCategory: biz?.category ?? "",
         trialDaysLeft,
         clientCount,
         appointmentsThisWeek,

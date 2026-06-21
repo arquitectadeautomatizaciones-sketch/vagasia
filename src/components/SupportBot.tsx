@@ -277,7 +277,7 @@ export default function SupportBot() {
         ].join(" ")}
       >
         {/* Header */}
-        <div className="flex items-center gap-3 rounded-t-2xl bg-[#00B4D8] px-4 py-3 shrink-0">
+        <div className="flex items-center gap-3 rounded-t-2xl bg-[#4ECDC4] px-4 py-3 shrink-0">
           <Image
             src={SOFIA_AVATAR}
             alt="Sofía"
