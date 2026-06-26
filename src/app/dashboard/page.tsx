@@ -16,6 +16,7 @@ import {
   Mail,
   Phone,
   MapPin,
+  ArrowRight,
 } from "lucide-react";
 import type { Professional } from "@/lib/types";
 
@@ -55,7 +56,7 @@ export default async function DashboardPage() {
     apptQuery = apptQuery.eq("professional_id", professionalId);
   }
 
-  const [{ data: appointmentsRaw }, { data: professionalsRaw }, user] = await Promise.all([
+  const [{ data: appointmentsRaw }, { data: professionalsRaw }, { count: clientCount }, user] = await Promise.all([
     apptQuery,
     db
       .from("professionals")
@@ -63,6 +64,10 @@ export default async function DashboardPage() {
       .eq("business_id", businessId)
       .eq("is_active", true)
       .order("created_at", { ascending: true }),
+    db
+      .from("clients")
+      .select("id", { count: "exact", head: true })
+      .eq("business_id", businessId),
     (async () => {
       const { createSupabaseServerClient } = await import("@/utils/supabase/server");
       const supabase = await createSupabaseServerClient();
@@ -85,7 +90,8 @@ export default async function DashboardPage() {
   const isActive       = user?.app_metadata?.is_active === true;
   const trialStartedAt = user?.app_metadata?.trial_started_at as string | undefined;
   const daysRemaining  = trialStartedAt ? trialDaysRemaining(trialStartedAt) : 0;
-  const showTrialBanner = !isActive && trialStartedAt && daysRemaining > 0;
+  const showTrialBanner     = !isActive && trialStartedAt && daysRemaining > 0;
+  const showFirstClientCard = (clientCount ?? 0) === 0 && !!trialStartedAt;
 
   const dateDisplay = new Date().toLocaleDateString("pt-PT", {
     weekday: "long", day: "numeric", month: "long", year: "numeric",
@@ -155,6 +161,29 @@ export default async function DashboardPage() {
               className="flex-shrink-0 rounded-lg bg-[#00B4D8] px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-[#0090b0]"
             >
               Subscrever
+            </a>
+          </div>
+        )}
+
+        {/* Tarjeta de primera acción guiada — desaparece al añadir el primer cliente */}
+        {showFirstClientCard && (
+          <div className="flex items-center gap-4 rounded-xl border border-[#2A9D8F]/30 bg-[#2A9D8F]/8 px-5 py-4">
+            <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-[#2A9D8F]/20 text-lg">
+              ✅
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-semibold text-white">
+                Agenda configurada — 4 semanas prontas
+              </p>
+              <p className="text-xs text-slate-400 mt-0.5">
+                👉 Próximo passo: adiciona o teu primeiro cliente e vê o sistema funcionar
+              </p>
+            </div>
+            <a
+              href="/clientes"
+              className="flex-shrink-0 flex items-center gap-1.5 rounded-lg bg-[#2A9D8F] px-3 py-2 text-xs font-semibold text-white transition-colors hover:bg-[#1F7A6E]"
+            >
+              Adicionar cliente <ArrowRight size={13} />
             </a>
           </div>
         )}
