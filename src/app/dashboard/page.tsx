@@ -223,6 +223,28 @@ export default async function DashboardPage() {
           />
         )}
 
+        {/* O teu relatório mensal */}
+        <div className="rounded-xl border border-[#4ECDC4]/20 bg-[#1E293B] p-5">
+          <div className="flex items-start gap-3">
+            <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg bg-[#4ECDC4]/15 text-base">
+              📊
+            </div>
+            <div>
+              <h2 className="text-sm font-semibold text-white mb-1">O teu relatório mensal</h2>
+              <p className="text-sm text-slate-400 leading-relaxed">
+                Todos os meses recebes automaticamente o resumo do teu negócio: quantas marcações realizaste, quem não voltou, quantas vagas recuperámos e quanto faturaste.{" "}
+                <span className="text-slate-300 font-medium">Sem fazer nada.</span>
+              </p>
+              <a
+                href="/relatorio"
+                className="mt-3 inline-flex items-center gap-1.5 text-xs font-medium text-[#4ECDC4] hover:text-[#2A9D8F] transition-colors"
+              >
+                Ver relatório deste mês <ArrowRight size={12} />
+              </a>
+            </div>
+          </div>
+        </div>
+
         {/* Sección de soporte */}
         <div className="rounded-xl border border-[#2DD4BF]/20 bg-[#0F172A]/60 p-6">
           <h2 className="mb-4 text-sm font-semibold text-white">
