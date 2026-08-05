@@ -550,21 +550,31 @@ export default function OnboardingPage() {
     window.location.href = "/login";
   }
 
-  // On mount: check if already onboarded, prefill business name and personal name
+  // On mount: check if already onboarded, initialize business if needed
   useEffect(() => {
-    createSupabaseBrowserClient()
-      .auth.getUser()
-      .then(({ data: { user } }) => {
-        if (user?.app_metadata?.onboarding_completed) {
-          router.replace("/dashboard");
-          return;
-        }
-        setBusinessName(user?.app_metadata?.business_name ?? "");
-        // Nombre personal del usuario (guardado en user_metadata al registrarse)
-        const name = (user?.user_metadata?.name as string | undefined) ?? "";
-        setUserName(name);
-        setChecking(false);
-      });
+    (async () => {
+      const supabase = createSupabaseBrowserClient();
+      let { data: { user } } = await supabase.auth.getUser();
+
+      if (user?.app_metadata?.onboarding_completed) {
+        router.replace("/dashboard");
+        return;
+      }
+
+      // If business not yet created (new two-step flow), initialize it now
+      if (user && !user.app_metadata?.business_id) {
+        await fetch("/api/auth/initialize", { method: "POST" });
+        // Refresh session so app_metadata is up to date
+        await supabase.auth.refreshSession();
+        const refreshed = await supabase.auth.getUser();
+        user = refreshed.data.user;
+      }
+
+      setBusinessName(user?.app_metadata?.business_name ?? "");
+      const name = (user?.user_metadata?.name as string | undefined) ?? "";
+      setUserName(name);
+      setChecking(false);
+    })();
   }, [router]);
 
   const setDay = useCallback(

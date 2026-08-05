@@ -1,9 +1,19 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
-import { Zap, Eye, EyeOff } from "lucide-react";
+import { Zap, Eye, EyeOff, Mail, RefreshCw } from "lucide-react";
 import { createSupabaseBrowserClient } from "@/utils/supabase/client";
+
+declare global {
+  interface Window {
+    turnstile?: {
+      render: (container: string | HTMLElement, options: Record<string, unknown>) => string;
+      reset: (widgetId: string) => void;
+      remove: (widgetId: string) => void;
+    };
+  }
+}
 
 interface FormData {
   name: string;
@@ -25,6 +35,42 @@ export default function RegisterPage() {
   const [error, setError] = useState("");
   const [emailExists, setEmailExists] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [confirmed, setConfirmed] = useState(false);
+  const [resending, setResending] = useState(false);
+  const [resendDone, setResendDone] = useState(false);
+
+  const turnstileRef = useRef<HTMLDivElement>(null);
+  const widgetIdRef = useRef<string | null>(null);
+  const tokenRef = useRef<string>("");
+
+  const siteKey = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY ?? "";
+
+  useEffect(() => {
+    if (!siteKey || !turnstileRef.current) return;
+
+    const script = document.createElement("script");
+    script.src = "https://challenges.cloudflare.com/turnstile/v0/api.js";
+    script.async = true;
+    script.onload = () => {
+      if (window.turnstile && turnstileRef.current) {
+        widgetIdRef.current = window.turnstile.render(turnstileRef.current, {
+          sitekey: siteKey,
+          size: "invisible",
+          callback: (token: string) => { tokenRef.current = token; },
+          "expired-callback": () => { tokenRef.current = ""; },
+          "error-callback": () => { tokenRef.current = ""; },
+        });
+      }
+    };
+    document.head.appendChild(script);
+
+    return () => {
+      if (widgetIdRef.current && window.turnstile) {
+        window.turnstile.remove(widgetIdRef.current);
+      }
+      document.head.removeChild(script);
+    };
+  }, [siteKey]);
 
   function field(key: keyof FormData) {
     return (e: React.ChangeEvent<HTMLInputElement>) =>
@@ -37,11 +83,10 @@ export default function RegisterPage() {
     setEmailExists(false);
     setLoading(true);
 
-    // 1. Criar conta + negócio via API
     const res = await fetch("/api/auth/register", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(form),
+      body: JSON.stringify({ ...form, turnstileToken: tokenRef.current }),
     });
 
     const data = await res.json().catch(() => ({}));
@@ -52,32 +97,85 @@ export default function RegisterPage() {
       } else {
         setError(data.error ?? "Erro ao criar conta. Tente novamente.");
       }
+      // Reset Turnstile for next attempt
+      if (widgetIdRef.current && window.turnstile) {
+        window.turnstile.reset(widgetIdRef.current);
+        tokenRef.current = "";
+      }
       setLoading(false);
       return;
     }
 
-    // 2. Iniciar sessão automaticamente
+    // Registration successful — show email confirmation screen
+    setConfirmed(true);
+    setLoading(false);
+  }
+
+  async function handleResend() {
+    setResending(true);
+    setResendDone(false);
     const supabase = createSupabaseBrowserClient();
-    const { error: signInError } = await supabase.auth.signInWithPassword({
-      email: form.email,
-      password: form.password,
-    });
-
-    if (signInError) {
-      setError("Conta criada com sucesso! Faz login para continuar.");
-      setLoading(false);
-      return;
-    }
-
-    window.location.href = "/onboarding";
+    await supabase.auth.resend({ type: "signup", email: form.email });
+    setResending(false);
+    setResendDone(true);
   }
 
   const inputClass =
     "w-full rounded-xl border border-white/10 bg-[#0F172A] px-4 py-3 text-white placeholder-slate-600 transition-colors focus:border-[#00B4D8] focus:outline-none";
 
+  // — Email confirmation screen —
+  if (confirmed) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-[#0F172A] p-4">
+        <div className="w-full max-w-sm">
+          <div className="mb-8 flex items-center justify-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#00B4D8]">
+              <Zap size={20} className="text-white" fill="white" />
+            </div>
+            <div>
+              <p className="text-lg font-bold tracking-wide text-white">VagasIA</p>
+              <p className="text-[11px] leading-none text-[#2DD4BF]">Sistema de Gestão</p>
+            </div>
+          </div>
+
+          <div className="rounded-2xl border border-white/5 bg-[#1E293B] p-8 text-center">
+            <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-[#00B4D8]/10">
+              <Mail size={26} className="text-[#00B4D8]" />
+            </div>
+            <h1 className="mb-2 text-xl font-bold text-white">Verifica o teu email</h1>
+            <p className="mb-2 text-sm text-slate-400">
+              Enviámos um link de confirmação para:
+            </p>
+            <p className="mb-6 text-sm font-semibold text-white break-all">{form.email}</p>
+            <p className="mb-6 text-xs text-slate-500 leading-relaxed">
+              Clica no link no email para ativar a tua conta. Se não o vires na caixa de entrada, verifica a pasta de <strong className="text-slate-400">spam</strong> ou <strong className="text-slate-400">lixo</strong>.
+            </p>
+
+            {resendDone ? (
+              <p className="text-sm text-[#2DD4BF]">Email reenviado ✓</p>
+            ) : (
+              <button
+                onClick={handleResend}
+                disabled={resending}
+                className="inline-flex items-center gap-2 text-sm text-slate-400 hover:text-white transition-colors disabled:opacity-50"
+              >
+                <RefreshCw size={14} className={resending ? "animate-spin" : ""} />
+                {resending ? "A reenviar…" : "Reenviar email"}
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // — Registration form —
   return (
     <div className="flex min-h-screen items-center justify-center bg-[#0F172A] p-4">
       <div className="w-full max-w-sm">
+        {/* Invisible Turnstile widget */}
+        <div ref={turnstileRef} />
+
         {/* Logótipo */}
         <div className="mb-8 flex items-center justify-center gap-3">
           <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#00B4D8]">

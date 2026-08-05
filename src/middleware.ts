@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 
-const PUBLIC_PREFIXES = ["/login", "/register", "/marcar", "/demo", "/survey", "/api/survey", "/api/aniversarios-hoje", "/api/satisfacao", "/api/whatsapp", "/api/auth", "/auth", "/suspended", "/subscribe", "/api/stripe/webhook"];
+const PUBLIC_PREFIXES = ["/login", "/register", "/marcar", "/demo", "/survey", "/api/survey", "/api/aniversarios-hoje", "/api/satisfacao", "/api/whatsapp", "/api/auth", "/auth", "/suspended", "/subscribe", "/api/stripe/webhook", "/verify-email"];
 
 const TRIAL_DAYS = 7;
 
@@ -51,6 +51,14 @@ export async function middleware(request: NextRequest) {
   }
 
   if (user) {
+    // Block unconfirmed emails — redirect to /verify-email (except public routes already handled above)
+    if (!user.email_confirmed_at && !isPublic && !pathname.startsWith("/verify-email")) {
+      if (pathname.startsWith("/api/")) {
+        return NextResponse.json({ error: "Email não confirmado." }, { status: 403 });
+      }
+      return NextResponse.redirect(new URL("/verify-email", request.url));
+    }
+
     const isActive = user.app_metadata?.is_active === true;
     const trialStartedAt = user.app_metadata?.trial_started_at as string | undefined;
     const inTrial = !!trialStartedAt && trialDaysRemaining(trialStartedAt) > 0;
