@@ -41,8 +41,11 @@ export default function RegisterPage() {
   // Turnstile: widget is "ready" once it fires the success callback
   // If no siteKey (local dev), skip and always allow
   const siteKey = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY ?? "";
+  // turnstileReady: true when widget fires success callback (or no siteKey = dev mode)
+  // turnstileErrorCode: Cloudflare error code (300010 = domain mismatch, 300030 = sitekey invalid, etc.)
+  // When Turnstile errors, we degrade gracefully: form still submits, server rate-limit protects
   const [turnstileReady, setTurnstileReady] = useState(!siteKey);
-  const [turnstileError, setTurnstileError] = useState(false);
+  const [turnstileErrorCode, setTurnstileErrorCode] = useState<string | null>(null);
   const turnstileRef = useRef<HTMLDivElement>(null);
   const widgetIdRef = useRef<string | null>(null);
   const tokenRef = useRef<string>("");
@@ -62,15 +65,20 @@ export default function RegisterPage() {
           callback: (token: string) => {
             tokenRef.current = token;
             setTurnstileReady(true);
-            setTurnstileError(false);
+            setTurnstileErrorCode(null);
           },
           "expired-callback": () => {
             tokenRef.current = "";
             setTurnstileReady(false);
           },
-          "error-callback": () => {
+          "error-callback": (errorCode: string) => {
             tokenRef.current = "";
-            setTurnstileError(true);
+            console.error("[Turnstile] error-callback fired. code:", errorCode);
+            // 300010 = domain not authorized, 300030 = invalid sitekey
+            setTurnstileErrorCode(errorCode ?? "unknown");
+            // Degrade gracefully: unblock form so users can still register.
+            // Rate-limit on the server remains active as secondary protection.
+            setTurnstileReady(true);
           },
         });
       }
@@ -305,11 +313,11 @@ export default function RegisterPage() {
             {/* Turnstile widget — visible compact, auto-verifies for real users */}
             {siteKey && (
               <div className="pt-1">
-                {turnstileError ? (
-                  <div className="flex items-center gap-2 rounded-lg border border-red-500/20 bg-red-500/5 px-3 py-2">
-                    <ShieldAlert size={14} className="text-red-400 shrink-0" />
-                    <p className="text-xs text-red-400">
-                      Erro na verificação de segurança. Recarrega a página e tenta novamente.
+                {turnstileErrorCode ? (
+                  <div className="flex items-center gap-2 rounded-lg border border-yellow-500/20 bg-yellow-500/5 px-3 py-2">
+                    <ShieldAlert size={14} className="text-yellow-400 shrink-0" />
+                    <p className="text-xs text-yellow-400">
+                      Verificação de segurança indisponível (cód. {turnstileErrorCode}). Podes continuar o registo.
                     </p>
                   </div>
                 ) : (
