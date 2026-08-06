@@ -15,6 +15,37 @@ async function verifyTurnstile(token: string, ip: string): Promise<boolean> {
   return data.success === true;
 }
 
+async function sendConfirmationEmail(toEmail: string, firstName: string, confirmationUrl: string) {
+  const apiKey = process.env.RESEND_API_KEY;
+  if (!apiKey) return;
+
+  await fetch("https://api.resend.com/emails", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      from: "Sofía do VagasIA <hola@arquitectadeautomatizaciones.com>",
+      to: toEmail,
+      subject: "Confirma o teu email para ativar o VagasIA 💚",
+      html: `
+        <div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:40px 28px;background:#0F172A;color:#e2e8f0;border-radius:16px">
+          <p style="font-size:15px;line-height:1.7;color:#cbd5e1;margin:0 0 20px">Olá ${firstName},</p>
+          <p style="font-size:15px;line-height:1.7;color:#cbd5e1;margin:0 0 20px">Bem-vinda ao Vagas.IA. Sou a Sofía, a tua assistente de marcações.</p>
+          <p style="font-size:15px;line-height:1.7;color:#cbd5e1;margin:0 0 28px">Para ativar a tua conta, clica no botão abaixo. O link é válido por 24 horas.</p>
+          <a href="${confirmationUrl}"
+             style="display:inline-block;padding:13px 28px;background:#2A9D8F;color:#fff;font-weight:600;border-radius:10px;text-decoration:none;font-size:15px">
+            Confirmar email e entrar
+          </a>
+          <p style="margin-top:28px;font-size:13px;color:#475569;line-height:1.6">Se não criaste uma conta no VagasIA, ignora este email.</p>
+          <p style="margin-top:36px;font-size:14px;color:#64748b;line-height:1.6">Vemo-nos lá dentro. 💚<br/><strong style="color:#94a3b8">Sofía</strong></p>
+        </div>
+      `,
+    }),
+  }).catch(() => {});
+}
+
 async function notifyDiana(name: string, email: string, businessName: string) {
   const apiKey = process.env.RESEND_API_KEY;
   if (!apiKey) return;
@@ -93,8 +124,8 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  // 5. Create auth user WITHOUT email confirmation — Supabase sends the confirmation email
-  //    Business and professional rows are created AFTER the user clicks the link (/api/auth/initialize)
+  // 5. Create auth user WITHOUT email confirmation.
+  //    Business and professional rows are created AFTER the user clicks the confirmation link.
   const { data: authData, error: authError } = await admin.auth.admin.createUser({
     email: email.trim(),
     password,
@@ -113,7 +144,27 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  // 6. Notify Diana via email (fire-and-forget)
+  // 6. Generate the confirmation link and send via Resend (our branded email).
+  //    admin.createUser does NOT auto-send the confirmation email — we must send it ourselves.
+  const origin = req.headers.get("origin") ?? "https://vagasia.vercel.app";
+  const { data: linkData } = await admin.auth.admin.generateLink({
+    type: "signup",
+    email: email.trim(),
+    password,
+    options: {
+      redirectTo: `${origin}/auth/callback?next=/onboarding`,
+    },
+  });
+
+  const confirmationUrl =
+    (linkData as { properties?: { action_link?: string } } | null)?.properties?.action_link ?? "";
+
+  const firstName = name.trim().split(" ")[0];
+  if (confirmationUrl) {
+    sendConfirmationEmail(email.trim(), firstName, confirmationUrl).catch(() => {});
+  }
+
+  // 7. Notify Diana (fire-and-forget)
   notifyDiana(name.trim(), email.trim(), businessName.trim()).catch(() => {});
 
   return NextResponse.json({ success: true, requiresEmailConfirmation: true }, { status: 201 });

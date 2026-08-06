@@ -114,8 +114,11 @@ export default function RegisterPage() {
   async function handleResend() {
     setResending(true);
     setResendDone(false);
-    const supabase = createSupabaseBrowserClient();
-    await supabase.auth.resend({ type: "signup", email: form.email });
+    await fetch("/api/auth/resend-confirmation", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email: form.email, name: form.name }),
+    });
     setResending(false);
     setResendDone(true);
   }

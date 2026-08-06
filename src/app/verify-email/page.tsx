@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { Zap, Mail, RefreshCw } from "lucide-react";
-import { createSupabaseBrowserClient } from "@/utils/supabase/client";
+import { createSupabaseBrowserClient } from "@/utils/supabase/client"; // used for getUser
 
 export default function VerifyEmailPage() {
   const [email, setEmail] = useState("");
@@ -21,8 +21,11 @@ export default function VerifyEmailPage() {
     if (!email) return;
     setResending(true);
     setResendDone(false);
-    const supabase = createSupabaseBrowserClient();
-    await supabase.auth.resend({ type: "signup", email });
+    await fetch("/api/auth/resend-confirmation", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email }),
+    });
     setResending(false);
     setResendDone(true);
   }
