@@ -2,8 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
-import { Zap, Eye, EyeOff, Mail, RefreshCw } from "lucide-react";
-import { createSupabaseBrowserClient } from "@/utils/supabase/client";
+import { Zap, Eye, EyeOff, Mail, RefreshCw, ShieldAlert } from "lucide-react";
 
 declare global {
   interface Window {
@@ -39,11 +38,14 @@ export default function RegisterPage() {
   const [resending, setResending] = useState(false);
   const [resendDone, setResendDone] = useState(false);
 
+  // Turnstile: widget is "ready" once it fires the success callback
+  // If no siteKey (local dev), skip and always allow
+  const siteKey = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY ?? "";
+  const [turnstileReady, setTurnstileReady] = useState(!siteKey);
+  const [turnstileError, setTurnstileError] = useState(false);
   const turnstileRef = useRef<HTMLDivElement>(null);
   const widgetIdRef = useRef<string | null>(null);
   const tokenRef = useRef<string>("");
-
-  const siteKey = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY ?? "";
 
   useEffect(() => {
     if (!siteKey || !turnstileRef.current) return;
@@ -55,10 +57,21 @@ export default function RegisterPage() {
       if (window.turnstile && turnstileRef.current) {
         widgetIdRef.current = window.turnstile.render(turnstileRef.current, {
           sitekey: siteKey,
-          size: "invisible",
-          callback: (token: string) => { tokenRef.current = token; },
-          "expired-callback": () => { tokenRef.current = ""; },
-          "error-callback": () => { tokenRef.current = ""; },
+          size: "compact",
+          theme: "dark",
+          callback: (token: string) => {
+            tokenRef.current = token;
+            setTurnstileReady(true);
+            setTurnstileError(false);
+          },
+          "expired-callback": () => {
+            tokenRef.current = "";
+            setTurnstileReady(false);
+          },
+          "error-callback": () => {
+            tokenRef.current = "";
+            setTurnstileError(true);
+          },
         });
       }
     };
@@ -68,7 +81,7 @@ export default function RegisterPage() {
       if (widgetIdRef.current && window.turnstile) {
         window.turnstile.remove(widgetIdRef.current);
       }
-      document.head.removeChild(script);
+      if (document.head.contains(script)) document.head.removeChild(script);
     };
   }, [siteKey]);
 
@@ -101,12 +114,12 @@ export default function RegisterPage() {
       if (widgetIdRef.current && window.turnstile) {
         window.turnstile.reset(widgetIdRef.current);
         tokenRef.current = "";
+        setTurnstileReady(false);
       }
       setLoading(false);
       return;
     }
 
-    // Registration successful — show email confirmation screen
     setConfirmed(true);
     setLoading(false);
   }
@@ -142,20 +155,25 @@ export default function RegisterPage() {
           </div>
 
           <div className="rounded-2xl border border-white/5 bg-[#1E293B] p-8 text-center">
-            <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-[#00B4D8]/10">
-              <Mail size={26} className="text-[#00B4D8]" />
+            <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-[#2A9D8F]/15">
+              <Mail size={26} className="text-[#2DD4BF]" />
             </div>
-            <h1 className="mb-2 text-xl font-bold text-white">Verifica o teu email</h1>
-            <p className="mb-2 text-sm text-slate-400">
-              Enviámos um link de confirmação para:
+            <h1 className="mb-3 text-xl font-bold text-white">Verifica a tua caixa de entrada</h1>
+            <p className="mb-5 text-sm leading-relaxed text-slate-300">
+              Enviámos um email de confirmação para{" "}
+              <strong className="text-white">{form.email}</strong>.
+              Clica no link para ativar a tua conta e entrar no VagasIA.
             </p>
-            <p className="mb-6 text-sm font-semibold text-white break-all">{form.email}</p>
-            <p className="mb-6 text-xs text-slate-500 leading-relaxed">
-              Clica no link no email para ativar a tua conta. Se não o vires na caixa de entrada, verifica a pasta de <strong className="text-slate-400">spam</strong> ou <strong className="text-slate-400">lixo</strong>.
-            </p>
+            <div className="mb-6 rounded-lg border border-yellow-500/20 bg-yellow-500/5 px-4 py-3 text-left">
+              <p className="text-xs text-yellow-400/80 leading-relaxed">
+                💡 Se não encontrares o email na caixa de entrada, verifica a pasta de{" "}
+                <strong className="text-yellow-300">spam</strong> ou{" "}
+                <strong className="text-yellow-300">lixo</strong>.
+              </p>
+            </div>
 
             {resendDone ? (
-              <p className="text-sm text-[#2DD4BF]">Email reenviado ✓</p>
+              <p className="text-sm text-[#2DD4BF] font-medium">✓ Email reenviado com sucesso</p>
             ) : (
               <button
                 onClick={handleResend}
@@ -163,7 +181,7 @@ export default function RegisterPage() {
                 className="inline-flex items-center gap-2 text-sm text-slate-400 hover:text-white transition-colors disabled:opacity-50"
               >
                 <RefreshCw size={14} className={resending ? "animate-spin" : ""} />
-                {resending ? "A reenviar…" : "Reenviar email"}
+                {resending ? "A reenviar…" : "Não recebi o email — reenviar"}
               </button>
             )}
           </div>
@@ -173,12 +191,11 @@ export default function RegisterPage() {
   }
 
   // — Registration form —
+  const canSubmit = turnstileReady && !loading;
+
   return (
     <div className="flex min-h-screen items-center justify-center bg-[#0F172A] p-4">
       <div className="w-full max-w-sm">
-        {/* Invisible Turnstile widget */}
-        <div ref={turnstileRef} />
-
         {/* Logótipo */}
         <div className="mb-8 flex items-center justify-center gap-3">
           <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#00B4D8]">
@@ -285,6 +302,22 @@ export default function RegisterPage() {
               </div>
             </div>
 
+            {/* Turnstile widget — visible compact, auto-verifies for real users */}
+            {siteKey && (
+              <div className="pt-1">
+                {turnstileError ? (
+                  <div className="flex items-center gap-2 rounded-lg border border-red-500/20 bg-red-500/5 px-3 py-2">
+                    <ShieldAlert size={14} className="text-red-400 shrink-0" />
+                    <p className="text-xs text-red-400">
+                      Erro na verificação de segurança. Recarrega a página e tenta novamente.
+                    </p>
+                  </div>
+                ) : (
+                  <div ref={turnstileRef} />
+                )}
+              </div>
+            )}
+
             {emailExists && (
               <p className="rounded-lg bg-yellow-500/10 px-3 py-2.5 text-sm text-yellow-400">
                 Este email já tem conta.{" "}
@@ -301,10 +334,14 @@ export default function RegisterPage() {
 
             <button
               type="submit"
-              disabled={loading}
-              className="mt-2 w-full rounded-xl bg-[#00B4D8] py-3 font-semibold text-white transition-colors hover:bg-[#0090b0] disabled:opacity-50"
+              disabled={!canSubmit}
+              className="mt-2 w-full rounded-xl bg-[#00B4D8] py-3 font-semibold text-white transition-colors hover:bg-[#0090b0] disabled:opacity-40 disabled:cursor-not-allowed"
             >
-              {loading ? "A criar conta…" : "Criar conta"}
+              {loading
+                ? "A criar conta…"
+                : !turnstileReady && siteKey
+                ? "A verificar segurança…"
+                : "Criar conta"}
             </button>
           </form>
 
