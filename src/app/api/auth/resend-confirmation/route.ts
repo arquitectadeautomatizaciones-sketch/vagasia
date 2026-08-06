@@ -38,8 +38,9 @@ export async function POST(req: NextRequest) {
   const admin = createSupabaseAdminClient();
   const origin = req.headers.get("origin") ?? "https://vagasia.vercel.app";
 
+  // Use magiclink (no password required) — clicking it also confirms the email
   const { data: linkData, error } = await admin.auth.admin.generateLink({
-    type: "signup",
+    type: "magiclink",
     email: body.email,
     options: { redirectTo: `${origin}/auth/callback?next=/onboarding` },
   });
