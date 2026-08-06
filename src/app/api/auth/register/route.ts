@@ -156,8 +156,7 @@ export async function POST(req: NextRequest) {
     },
   });
 
-  const confirmationUrl =
-    (linkData as { properties?: { action_link?: string } } | null)?.properties?.action_link ?? "";
+  const confirmationUrl = linkData?.properties?.action_link ?? "";
 
   const firstName = name.trim().split(" ")[0];
   if (confirmationUrl) {

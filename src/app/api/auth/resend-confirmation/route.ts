@@ -48,8 +48,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Não foi possível reenviar o email." }, { status: 500 });
   }
 
-  const confirmationUrl =
-    (linkData as { properties?: { action_link?: string } } | null)?.properties?.action_link ?? "";
+  const confirmationUrl = linkData?.properties?.action_link ?? "";
 
   if (confirmationUrl) {
     const firstName = (body.name as string | undefined)?.split(" ")[0] ?? "utilizador";
