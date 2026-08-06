@@ -73,12 +73,10 @@ export default function RegisterPage() {
           },
           "error-callback": (errorCode: string) => {
             tokenRef.current = "";
+            // Capture exact code for diagnostics (300010=domain, 300030=sitekey, 110100=not found)
             console.error("[Turnstile] error-callback fired. code:", errorCode);
-            // 300010 = domain not authorized, 300030 = invalid sitekey
             setTurnstileErrorCode(errorCode ?? "unknown");
-            // Degrade gracefully: unblock form so users can still register.
-            // Rate-limit on the server remains active as secondary protection.
-            setTurnstileReady(true);
+            // Do NOT set turnstileReady — button stays disabled, error is shown to user
           },
         });
       }

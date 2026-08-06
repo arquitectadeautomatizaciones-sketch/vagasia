@@ -99,17 +99,13 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "A password deve ter pelo menos 6 caracteres." }, { status: 400 });
   }
 
-  // 3. Turnstile verification (soft — if widget errors on Cloudflare side, token is empty;
-  //    in that case we degrade gracefully and rely on rate-limit as primary protection).
-  if (turnstileToken) {
-    const turnstileOk = await verifyTurnstile(turnstileToken, ip);
-    if (!turnstileOk) {
-      return NextResponse.json({ error: "Verificação de segurança falhou. Tente novamente." }, { status: 400 });
-    }
-  } else {
-    // Token absent = Turnstile widget errored (domain config issue on Cloudflare).
-    // Log for diagnostics; rate-limit remains active as protection.
-    console.warn(`[register] Turnstile token absent for IP ${ip} — widget may be misconfigured`);
+  // 3. Turnstile verification — mandatory. Token must be present and valid.
+  if (!turnstileToken) {
+    return NextResponse.json({ error: "Verificação de segurança necessária." }, { status: 400 });
+  }
+  const turnstileOk = await verifyTurnstile(turnstileToken, ip);
+  if (!turnstileOk) {
+    return NextResponse.json({ error: "Verificação de segurança falhou. Tente novamente." }, { status: 400 });
   }
 
   const admin = createSupabaseAdminClient();
